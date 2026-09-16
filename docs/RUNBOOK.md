@@ -45,7 +45,7 @@ default via 192.168.1.1 dev ens33
 
 Active `policedbc` configuration must not route `192.168.1.0/24`. Backups may retain historical values for rollback.
 
-`core.zeaz.dev = 192.168.1.100` is now paired with verified MAC `00:0C:29:75:A6:D4`.
+`core.zeaz.dev = 192.168.1.123` is paired with verified MAC `00:0C:29:75:A6:D4`.
 
 ## 3. Validate repository state
 
@@ -135,8 +135,9 @@ Independently verify management, `ether1` WAN DHCP/default route, `bridgeLocal` 
 Current fixed/reserved LAN inventory:
 
 ~~~text
-PoliceDBC-SEA       192.168.1.10   48:4D:7E:D4:3A:C6
-core.zeaz.dev       192.168.1.100  00:0C:29:75:A6:D4
+PoliceDBC-SEA       192.168.1.100  48:4D:7E:D4:3A:C6
+core.zeaz.dev       192.168.1.123  00:0C:29:75:A6:D4
+prod.zeaz.dev       192.168.1.122  00:0C:29:B5:F4:09
 RITRUECHAI-AP01     192.168.1.101  88:DC:96:55:58:E4
 RITRUECHAI-AP02     192.168.1.102  88:DC:96:55:58:E7
 BOONNAK-AP01        192.168.1.103  88:DC:96:55:58:F0
@@ -151,11 +152,7 @@ wifi.zeaz.dev       192.168.1.238  E4:90:2A:40:61:21
 EWS1200D-10T        192.168.1.239  88:DC:96:53:0F:55
 ~~~
 
-### PROD blocker
-
-The supplied inventory also reports `prod.zeaz.dev = 192.168.1.101`. That address is already assigned to `RITRUECHAI-AP01`. zOS therefore withholds the PROD DHCP/DNS binding rather than creating a duplicate IP. Resolve the inventory conflict before enabling any PROD binding.
-
-The previous repository values `prod=.122` and `core=.123` are obsolete and must not be restored as current topology.
+The existing repository baseline for CORE and PROD is authoritative for this change: `core=.123`, `prod=.122`. The supplied WiFi inventory is added without reassigning those addresses.
 
 ## 9. Update automation
 

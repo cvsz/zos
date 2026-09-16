@@ -8,7 +8,7 @@ This file is a compact infrastructure summary. `ENVIRONMENTS.md` is the canonica
 - RouterOS baseline: 7.24.2+.
 - WAN: DHCP client on `ether1`; observed lease `192.168.202.91/21` is runtime evidence only.
 - Upstream gateway observed from DHCP: `192.168.200.1`.
-- LAN: `bridgeLocal = 192.168.1.1/24`.
+- LAN: `DBC-Bridge-Local = 192.168.1.1/24`.
 - LAN ports: `ether2`-`ether10` and `sfp-sfpplus1`.
 - Dynamic DHCP ranges: `192.168.1.50-99`, `109-118`, `121-237`, and `240-254`.
 - Fixed infrastructure `.10`, `.100`, `.101-.108`, `.119`, `.120`, `.238`, and `.239` is excluded from dynamic allocation.

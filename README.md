@@ -16,7 +16,7 @@ zOS is the ZeaZDev management and safety control plane for MikroTik RouterOS. Ro
 - Repository: `cvsz/zos`, default branch `main`.
 - Router: MikroTik RB4011iGS+, RouterOS 7.24.2+.
 - WAN: DHCP client on `ether1`; observed lease `192.168.202.91/21`, upstream gateway `192.168.200.1`. The lease is runtime evidence and must not be hard-coded.
-- LAN: `bridgeLocal = 192.168.1.1/24`; `ether2`-`ether10` and `sfp-sfpplus1` remain LAN bridge ports.
+- LAN: `DBC-Bridge-Local = 192.168.1.1/24`; `ether2`-`ether10` and `sfp-sfpplus1` remain LAN bridge ports.
 - `PoliceDBC-SEA = 192.168.1.100`, MAC `48:4D:7E:D4:3A:C6`.
 - `core.zeaz.dev = 192.168.1.123`, MAC `00:0C:29:75:A6:D4`.
 - `prod.zeaz.dev = 192.168.1.122`, MAC `00:0C:29:B5:F4:09`; this existing repository baseline is retained.
@@ -40,7 +40,7 @@ default via 192.168.1.1 dev ens33
 
 ## Reinstall / recovery source of truth
 
-Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` for a clean RouterOS rebuild. It encodes the verified `ether1` DHCP WAN and `bridgeLocal` LAN topology and the verified fixed host inventory, including the existing `core=.123` and `prod=.122` repository baseline. Always dry-run and maintain a recovery path before live apply.
+Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` for a clean RouterOS rebuild. It encodes the verified `ether1` DHCP WAN and `DBC-Bridge-Local` LAN topology and the verified fixed host inventory, including the existing `core=.123` and `prod=.122` repository baseline. Always dry-run and maintain a recovery path before live apply.
 
 ## Quick start
 

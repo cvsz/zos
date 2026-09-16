@@ -13,7 +13,7 @@ chmod 600 config/topology.env
 ./zOS/bin/zos doctor
 ~~~
 
-Review every topology value before use. The verified production router contract is `ether1` DHCP WAN and `bridgeLocal = 192.168.1.1/24`. A DHCP-assigned WAN address is runtime evidence and must not be hard-coded.
+Review every topology value before use. The verified production router contract is `ether1` DHCP WAN and `DBC-Bridge-Local = 192.168.1.1/24`. A DHCP-assigned WAN address is runtime evidence and must not be hard-coded.
 
 ## 2. Establish CORE network and SSH
 
@@ -130,7 +130,7 @@ make verify
 make e2e
 ~~~
 
-Independently verify management, `ether1` WAN DHCP/default route, `bridgeLocal` LAN, DHCP/DNS, the fixed host inventory, WireGuard handshake, firewall/NAT, and intended service reachability.
+Independently verify management, `ether1` WAN DHCP/default route, `DBC-Bridge-Local` LAN, DHCP/DNS, the fixed host inventory, WireGuard handshake, firewall/NAT, and intended service reachability.
 
 Current fixed/reserved LAN inventory:
 

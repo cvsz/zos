@@ -2,7 +2,7 @@
 :put "===== OMEGA VERIFY ====="
 /system resource print
 /ip address print detail
-/interface bridge port print where bridge="bridgeLocal"
+/interface bridge port print where bridge="DBC-Bridge-Local"
 /interface list member print detail
 /ip dhcp-client print detail where interface="ether1"
 /ip dhcp-server print detail

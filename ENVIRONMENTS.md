@@ -49,7 +49,7 @@ PoliceDBC provides the production LAN/WAN/VPN edge:
 - RouterOS 7.24.2+ baseline;
 - WAN is DHCP client on `ether1`; the observed lease `192.168.202.91/21` is runtime evidence, not a hard-coded invariant;
 - upstream gateway observed from DHCP: `192.168.200.1`;
-- LAN `bridgeLocal = 192.168.1.1/24`;
+- LAN `DBC-Bridge-Local = 192.168.1.1/24`;
 - `ether2`-`ether10` and `sfp-sfpplus1` are LAN bridge ports;
 - DHCP dynamic pool excludes fixed infrastructure `.100-.108`, `.119`, `.120`, `.122`, `.123`, `.238`, `.239`;
 - WireGuard target remains `wg-remote = 10.8.0.1/24`, UDP 51820;

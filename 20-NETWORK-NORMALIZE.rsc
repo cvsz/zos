@@ -1,17 +1,17 @@
 :log warning "OMEGA NETWORK NORMALIZE START"
 
-:if ([:len [/interface bridge find where name="bridgeLocal"]] = 0) do={
-    :error "NETWORK NORMALIZE FAIL: bridgeLocal missing"
+:if ([:len [/interface bridge find where name="DBC-Bridge-Local"]] = 0) do={
+    :error "NETWORK NORMALIZE FAIL: DBC-Bridge-Local missing"
 }
 
 # LAN ports may be added only when they are not already owned by another bridge.
 :foreach p in={"ether2";"ether3";"ether4";"ether5";"ether6";"ether7";"ether8";"ether9";"ether10";"sfp-sfpplus1"} do={
     :if ([:len [/interface find where name=$p]] > 0) do={
-        :if ([:len [/interface bridge port find where bridge="bridgeLocal" and interface=$p]] = 0) do={
+        :if ([:len [/interface bridge port find where bridge="DBC-Bridge-Local" and interface=$p]] = 0) do={
             :if ([:len [/interface bridge port find where interface=$p]] > 0) do={
                 :error ("interface " . $p . " already belongs to another bridge; refusing takeover")
             }
-            /interface bridge port add bridge=bridgeLocal interface=$p comment="OMEGA-MANAGED"
+            /interface bridge port add bridge=DBC-Bridge-Local interface=$p comment="OMEGA-MANAGED"
         }
     }
 }
@@ -23,11 +23,11 @@
 }
 
 # The LAN gateway must either already be correct or be absent.
-:if ([:len [/ip address find where address="192.168.1.1/24" and interface="bridgeLocal"]] = 0) do={
+:if ([:len [/ip address find where address="192.168.1.1/24" and interface="DBC-Bridge-Local"]] = 0) do={
     :if ([:len [/ip address find where address="192.168.1.1/24"]] > 0) do={
         :error "192.168.1.1/24 exists on another interface; refusing takeover"
     }
-    /ip address add address=192.168.1.1/24 interface=bridgeLocal comment="OMEGA-MANAGED LAN gateway"
+    /ip address add address=192.168.1.1/24 interface=DBC-Bridge-Local comment="OMEGA-MANAGED LAN gateway"
 }
 
 # WAN DHCP is required on ether1. Other DHCP clients are not deleted here.
@@ -46,14 +46,14 @@
 :if ([:len [find where name="VPN"]] = 0) do={ add name=VPN comment="OMEGA-MANAGED" }
 
 /interface list member
-:if ([:len [find where list="WAN" and interface="bridgeLocal"]] > 0) do={
-    :error "bridgeLocal is unexpectedly in WAN list; refusing implicit removal"
+:if ([:len [find where list="WAN" and interface="DBC-Bridge-Local"]] > 0) do={
+    :error "DBC-Bridge-Local is unexpectedly in WAN list; refusing implicit removal"
 }
 :if ([:len [find where list="LAN" and interface="ether1"]] > 0) do={
     :error "ether1 is unexpectedly in LAN list; refusing implicit removal"
 }
 :if ([:len [find where list="WAN" and interface="ether1"]] = 0) do={ add list=WAN interface=ether1 comment="OMEGA-MANAGED" }
-:if ([:len [find where list="LAN" and interface="bridgeLocal"]] = 0) do={ add list=LAN interface=bridgeLocal comment="OMEGA-MANAGED" }
+:if ([:len [find where list="LAN" and interface="DBC-Bridge-Local"]] = 0) do={ add list=LAN interface=DBC-Bridge-Local comment="OMEGA-MANAGED" }
 :if ([:len [/interface wireguard find where name="wg-remote"]] > 0) do={
     :if ([:len [find where list="VPN" and interface="wg-remote"]] = 0) do={ add list=VPN interface=wg-remote comment="OMEGA-MANAGED" }
 }

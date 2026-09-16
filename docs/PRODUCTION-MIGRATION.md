@@ -13,7 +13,7 @@ This document records the migration from the historical clean-slate design to th
 - WAN: DHCP client on `ether1`;
 - observed WAN lease: `192.168.202.91/21` (runtime evidence only, never hard-code it);
 - upstream gateway observed from DHCP: `192.168.200.1`;
-- LAN: `bridgeLocal = 192.168.1.1/24`;
+- LAN: `DBC-Bridge-Local = 192.168.1.1/24`;
 - LAN ports: `ether2`-`ether10` and `sfp-sfpplus1`;
 - NAT: `192.168.1.0/24 -> WAN`;
 - WireGuard target: `wg-remote = 10.8.0.1/24`;

@@ -24,7 +24,7 @@ The lab should model behavior, not reuse production identities or credentials. T
 
 ~~~text
 WAN        ether1 DHCP
-LAN bridge bridgeLocal
+LAN bridge DBC-Bridge-Local
 LAN CIDR   192.168.1.0/24
 Gateway    192.168.1.1
 ~~~

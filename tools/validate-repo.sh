@@ -44,13 +44,13 @@ for f in "${active[@]}"; do
 done
 
 # Verified production topology.
-grep -q 'bridgeLocal' 00-PRECHECK.rsc || err 'precheck missing verified LAN bridge'
+grep -q 'DBC-Bridge-Local' 00-PRECHECK.rsc || err 'precheck missing verified LAN bridge'
 grep -q 'interface="ether1" and status="bound"' 00-PRECHECK.rsc || err 'precheck missing DHCP WAN bound check'
 grep -q '192.168.1.1/24' 00-PRECHECK.rsc || err 'precheck missing LAN gateway'
 grep -q '192.168.200.1' 00-PRECHECK.rsc || err 'precheck missing upstream gateway'
 grep -q '^ROUTER_WAN_MODE=dhcp$' config/topology.env.example || err 'topology must declare DHCP WAN'
 grep -q '^ROUTER_WAN_INTERFACE=ether1$' config/topology.env.example || err 'topology must declare ether1 WAN'
-grep -q '^ROUTER_LAN_BRIDGE=bridgeLocal$' config/topology.env.example || err 'topology must declare bridgeLocal LAN'
+grep -q '^ROUTER_LAN_BRIDGE=DBC-Bridge-Local$' config/topology.env.example || err 'topology must declare DBC-Bridge-Local LAN'
 grep -q '^DEV_LAN_IP=192\.168\.1\.123$' config/topology.env.example || err 'CORE target address missing'
 grep -q '^DEV_LAN_MAC=00:0C:29:75:A6:D4$' config/topology.env.example || err 'CORE MAC missing'
 grep -q '^PROD_LAN_IP=192\.168\.1\.122$' config/topology.env.example || err 'PROD target address missing'

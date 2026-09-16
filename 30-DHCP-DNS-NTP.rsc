@@ -17,10 +17,10 @@
 
 # Do not delete unrelated DHCP servers. zOS creates/manages only lan-dhcp.
 :if ([:len [/ip dhcp-server find where name="lan-dhcp"]] = 0) do={
-    /ip dhcp-server add name=lan-dhcp interface=bridgeLocal address-pool=lan-pool lease-time=12h authoritative=yes disabled=no comment="OMEGA-MANAGED LAN DHCP"
+    /ip dhcp-server add name=lan-dhcp interface=DBC-Bridge-Local address-pool=lan-pool lease-time=12h authoritative=yes disabled=no comment="OMEGA-MANAGED LAN DHCP"
 } else={
     :local dhcpId [/ip dhcp-server find where name="lan-dhcp"]
-    :if ([/ip dhcp-server get $dhcpId interface] != "bridgeLocal") do={ :error "lan-dhcp exists on another interface; refusing takeover" }
+    :if ([/ip dhcp-server get $dhcpId interface] != "DBC-Bridge-Local") do={ :error "lan-dhcp exists on another interface; refusing takeover" }
     :if ([/ip dhcp-server get $dhcpId address-pool] != "lan-pool") do={ :error "lan-dhcp uses another pool; refusing takeover" }
     :if ([/ip dhcp-server get $dhcpId disabled] = true) do={ :error "lan-dhcp exists but is disabled; refusing implicit enable" }
 }

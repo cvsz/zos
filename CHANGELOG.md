@@ -4,6 +4,15 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### 2026-09-16 verified LAN/WiFi inventory
+- Corrected `PoliceDBC-SEA` to `192.168.1.10` with MAC `48:4D:7E:D4:3A:C6`.
+- Corrected `core.zeaz.dev` to `192.168.1.100` with verified VMware MAC `00:0C:29:75:A6:D4`.
+- Added fixed DHCP inventory for RITRUECHAI-AP01/02, BOONNAK-AP01/02, SARASIN-AP01/02, and PANKHONGCHUEN-AP01/02 at `.101-.108` with the supplied MACs.
+- Added `wifi.zeaz.dev = 192.168.1.238` for `ZEAZ Wifi Repeater` and `EWS1200D-10T = 192.168.1.239`.
+- Updated the dynamic DHCP pool so fixed infrastructure addresses cannot be dynamically allocated.
+- Withheld the reported `prod.zeaz.dev = 192.168.1.101` binding because `.101` is already assigned to verified `RITRUECHAI-AP01`; the active RouterOS phase fails closed on this inventory conflict.
+- Removed obsolete active-contract assumptions for `prod=.122` and `core=.123` from the RouterOS topology source of truth.
+
 ### Cloudflare integration boundary
 - Added a secret-free Cloudflare connector/origin template and documented the optional DNS, Access, and Tunnel trust boundary.
 - Added explicit repository, runtime, rollback, and GitHub review gates; no Cloudflare provisioning or live RouterOS mutation is included.
@@ -11,8 +20,6 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 ### Verified RB4011 production topology
 - Replaced the stale static-WAN assumption with the verified `ether1` DHCP WAN contract; the observed `192.168.202.91/21` lease is runtime evidence only.
 - Made `bridgeLocal = 192.168.1.1/24` the canonical LAN bridge and retained `ether2`-`ether10` plus `sfp-sfpplus1` as LAN ports.
-- Added verified DHCP reservations for PoliceDBC-SEA, HA-A, HA-B, and PROD; reserved `core.zeaz.dev = 192.168.1.123` pending a verified CORE MAC.
-- Added split/local DNS for `prod.zeaz.dev`, `core.zeaz.dev`, `ha-a.zeaz.dev`, and `ha-b.zeaz.dev`.
 - Added `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` as the clean rebuild/recovery source of truth.
 - Removed obsolete numbered legacy phases for clean-slate identity, PPPoE networking, unverified segmentation, alternate WireGuard, fixed shaping, and superseded logging.
 

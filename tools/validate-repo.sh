@@ -52,24 +52,38 @@ grep -q '^ROUTER_WAN_MODE=dhcp$' config/topology.env.example || err 'topology mu
 grep -q '^ROUTER_WAN_INTERFACE=ether1$' config/topology.env.example || err 'topology must declare ether1 WAN'
 grep -q '^ROUTER_LAN_BRIDGE=bridgeLocal$' config/topology.env.example || err 'topology must declare bridgeLocal LAN'
 grep -q '^DEV_LAN_IP=192\.168\.1\.123$' config/topology.env.example || err 'CORE target address missing'
-grep -q '^PROD_LAN_IP=192\.168\.1\.122$' config/topology.env.example || err 'PROD LAN address missing'
+grep -q '^DEV_LAN_MAC=00:0C:29:75:A6:D4$' config/topology.env.example || err 'CORE MAC missing'
+grep -q '^PROD_LAN_IP=192\.168\.1\.122$' config/topology.env.example || err 'PROD target address missing'
 grep -q '^PROD_LAN_MAC=00:0C:29:B5:F4:09$' config/topology.env.example || err 'PROD MAC missing'
+grep -q '^PROD_LAN_STATUS=VERIFIED_REPOSITORY_BASELINE$' config/topology.env.example || err 'PROD baseline marker missing'
 
 # Fixed host inventory and local DNS.
-grep -q '48:4D:7E:D4:3A:C6' 30-DHCP-DNS-NTP.rsc || err 'PoliceDBC reservation missing'
-grep -q '00:0C:29:B7:22:AF' 30-DHCP-DNS-NTP.rsc || err 'HA-A reservation missing'
-grep -q '00:0C:29:72:EF:42' 30-DHCP-DNS-NTP.rsc || err 'HA-B reservation missing'
-grep -q '00:0C:29:B5:F4:09' 30-DHCP-DNS-NTP.rsc || err 'PROD reservation missing'
-grep -q 'prod.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'PROD DNS record missing'
-grep -q 'core.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'CORE DNS record missing'
-grep -q 'ha-a.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-A DNS record missing'
-grep -q 'ha-b.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-B DNS record missing'
+grep -q '48:4D:7E:D4:3A:C6=192.168.1.100=PoliceDBC-SEA' 30-DHCP-DNS-NTP.rsc || err 'PoliceDBC reservation missing'
+grep -q '00:0C:29:75:A6:D4=192.168.1.123=core.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'CORE reservation missing'
+grep -q '00:0C:29:B5:F4:09=192.168.1.122=prod.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'PROD reservation missing'
+grep -q '00:0C:29:B7:22:AF=192.168.1.119=ha-a.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-A reservation missing'
+grep -q '00:0C:29:72:EF:42=192.168.1.120=ha-b.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-B reservation missing'
+grep -q '88:DC:96:55:58:E4=192.168.1.101=RITRUECHAI-AP01' 30-DHCP-DNS-NTP.rsc || err 'RITRUECHAI-AP01 reservation missing'
+grep -q '88:DC:96:55:58:E7=192.168.1.102=RITRUECHAI-AP02' 30-DHCP-DNS-NTP.rsc || err 'RITRUECHAI-AP02 reservation missing'
+grep -q '88:DC:96:55:58:F0=192.168.1.103=BOONNAK-AP01' 30-DHCP-DNS-NTP.rsc || err 'BOONNAK-AP01 reservation missing'
+grep -q '88:DC:96:55:58:DE=192.168.1.104=BOONNAK-AP02' 30-DHCP-DNS-NTP.rsc || err 'BOONNAK-AP02 reservation missing'
+grep -q '88:DC:96:55:58:ED=192.168.1.105=SARASIN-AP02' 30-DHCP-DNS-NTP.rsc || err 'SARASIN-AP02 reservation missing'
+grep -q '88:DC:96:55:58:EA=192.168.1.106=SARASIN-AP01' 30-DHCP-DNS-NTP.rsc || err 'SARASIN-AP01 reservation missing'
+grep -q '88:DC:96:55:58:F3=192.168.1.107=PANKHONGCHUEN-AP01' 30-DHCP-DNS-NTP.rsc || err 'PANKHONGCHUEN-AP01 reservation missing'
+grep -q '88:DC:96:55:58:E1=192.168.1.108=PANKHONGCHUEN-AP02' 30-DHCP-DNS-NTP.rsc || err 'PANKHONGCHUEN-AP02 reservation missing'
+grep -q 'E4:90:2A:40:61:21=192.168.1.238=ZEAZ Wifi Repeater' 30-DHCP-DNS-NTP.rsc || err 'WiFi repeater reservation missing'
+grep -q '88:DC:96:53:0F:55=192.168.1.239=EWS1200D-10T' 30-DHCP-DNS-NTP.rsc || err 'EWS1200D reservation missing'
+grep -q 'wifi\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'WiFi DNS record missing'
+grep -q 'core\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'CORE DNS record missing'
+grep -q 'prod\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'PROD DNS record missing'
+grep -q 'ha-a\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-A DNS record missing'
+grep -q 'ha-b\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-B DNS record missing'
 
 # Ownership boundaries: active phases must preserve unrelated live state.
 grep -Fq 'refusing implicit WAN/LAN topology takeover' 20-NETWORK-NORMALIZE.rsc || err 'network phase must fail closed on ether1 bridge conflicts'
 grep -Fq 'already belongs to another bridge; refusing takeover' 20-NETWORK-NORMALIZE.rsc || err 'network phase must fail closed on bridge ownership conflicts'
-grep -Fq 'Do not delete ether2 DHCP servers' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must document preservation of unowned DHCP servers'
-grep -Fq 'global upstream DNS servers' 30-DHCP-DNS-NTP.rsc || err 'DNS phase must preserve upstream resolver state'
+grep -Fq 'Do not delete unrelated DHCP servers' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must document preservation of unowned DHCP servers'
+grep -Fq 'global upstream DNS' 30-DHCP-DNS-NTP.rsc || err 'DNS phase must preserve upstream resolver state'
 grep -Eq '/ip firewall (filter|nat) remove \[find where .*comment~|/ip firewall (filter|nat) remove \[find where .*comment=' 50-FIREWALL-NAT.rsc || err 'firewall cleanup must be restricted to zOS-owned comments'
 if grep -Eq 'core\.zeaz\.internal.*192\.168\.1\.128|192\.168\.1\.128.*core\.zeaz\.internal' 30-DHCP-DNS-NTP.rsc; then err 'DHCP/DNS phase hard-codes obsolete CORE address'; fi
 
@@ -110,7 +124,7 @@ fi
 if [[ -f core/install-ssh-key.sh ]]; then
   grep -Fq 'ssh-keygen -y' core/install-ssh-key.sh || err 'SSH installer must validate private key material with ssh-keygen -y'
   grep -Fq 'ssh-keygen -lf' core/install-ssh-key.sh || err 'SSH installer must validate public key fingerprint'
-  ! grep -Eq 'cvsz@192\.168\.1\.123|192\.168\.1\.123' core/install-ssh-key.sh || err 'SSH installer contains a hard-coded target address'
+  ! grep -Eq 'cvsz@192\.168\.1\.100|cvsz@192\.168\.1\.123' core/install-ssh-key.sh || err 'SSH installer contains a hard-coded target address'
 fi
 
 if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then err 'core/install.sh contains an APT signature-bypass pattern'; fi

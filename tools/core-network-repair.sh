@@ -74,9 +74,7 @@ find_persistent_conflict() {
 
   echo '=== active WireGuard AllowedIPs configuration ==='
 
-  shopt -s nullglob
-  configs=(/etc/wireguard/*.conf)
-  shopt -u nullglob
+  mapfile -t configs < <(sudo find /etc/wireguard -maxdepth 1 -name '*.conf' 2>/dev/null || true)
 
   if (("${#configs[@]}" == 0)); then
     echo 'No active /etc/wireguard/*.conf files found.'

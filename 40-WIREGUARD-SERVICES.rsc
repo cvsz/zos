@@ -1,10 +1,17 @@
 :log warning "OMEGA WIREGUARD SERVICES START"
-/interface wireguard set [find where name="wg-remote"] listen-port=51820 mtu=1420
+:if ([:len [/interface wireguard find where name="wg-remote"]] = 0) do={
+    /interface wireguard add name=wg-remote listen-port=51820 mtu=1420 comment="PoliceDBC: VPN"
+} else={
+    /interface wireguard set [find where name="wg-remote"] listen-port=51820 mtu=1420
+}
 :if ([:len [/ip address find where address="10.8.0.1/24" and interface="wg-remote"]] = 0) do={
     /ip address add address=10.8.0.1/24 interface=wg-remote comment="PoliceDBC: VPN GATEWAY"
 }
+:if ([:len [/interface list member find where list="VPN" and interface="wg-remote"]] = 0) do={
+    /interface list member add list=VPN interface=wg-remote comment="OMEGA-MANAGED"
+}
 :if ([:len [/interface wireguard peers find where interface="wg-remote" and allowed-address="10.8.0.2/32"]] = 0) do={
-    :log warning "OMEGA WARNING: expected CORE peer 10.8.0.2/32 not found; keys unchanged"
+    /interface wireguard peers add interface=wg-remote public-key="HPe+0n/v9HL+0DtcvhNg+GnHwdkgDZertP5NHdZNwW8=" allowed-address=10.8.0.2/32 comment="core.zeaz.dev"
 }
 /ip service set telnet disabled=yes
 /ip service set ftp disabled=yes

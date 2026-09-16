@@ -9,6 +9,11 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 - Preserved caller `OMEGA_ALLOW_LIVE_APPLY` override across topology sourcing in `tools/omega-router.sh`.
 - Completed pre-change backup, dry-run manifest validation, and live configuration apply on the MikroTik RB4011 router (`192.168.1.1`) with health verification passing.
 
+### WireGuard peer configuration
+- Added idempotent creation of `wg-remote` interface, address `10.8.0.1/24`, `VPN` interface list membership, and `core.zeaz.dev` peer (`10.8.0.2/32`) in `40-WIREGUARD-SERVICES.rsc`.
+- Fixed `/etc/wireguard/*.conf` file discovery in `tools/core-network-repair.sh` to work with root-protected permissions.
+- Verified active bidirectional WireGuard handshake and ICMP ping reachability between CORE (`10.8.0.2`) and router (`10.8.0.1`).
+
 ### 2026-09-16 verified LAN/WiFi inventory
 - Corrected `PoliceDBC-SEA` to `192.168.1.10` with MAC `48:4D:7E:D4:3A:C6`.
 - Corrected `core.zeaz.dev` to `192.168.1.100` with verified VMware MAC `00:0C:29:75:A6:D4`.

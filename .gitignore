@@ -12,3 +12,4 @@ state/
 cloudflare/config.env
 .env.ai
 .env.cloudflare
+core/install-ssh-key-local.sh

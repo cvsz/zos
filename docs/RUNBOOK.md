@@ -45,7 +45,7 @@ default via 192.168.1.1 dev ens33
 
 Active `policedbc` configuration must not route `192.168.1.0/24`. Backups may retain historical values for rollback.
 
-`core.zeaz.dev = 192.168.1.123` is reserved in the current LAN design, but its static DHCP binding remains absent until the CORE MAC is independently verified.
+`core.zeaz.dev = 192.168.1.100` is now paired with verified MAC `00:0C:29:75:A6:D4`.
 
 ## 3. Validate repository state
 
@@ -135,12 +135,27 @@ Independently verify management, `ether1` WAN DHCP/default route, `bridgeLocal` 
 Current fixed/reserved LAN inventory:
 
 ~~~text
-PoliceDBC-SEA  192.168.1.100  48:4D:7E:D4:3A:C6
-ha-a.zeaz.dev  192.168.1.119  00:0C:29:B7:22:AF
-ha-b.zeaz.dev  192.168.1.120  00:0C:29:72:EF:42
-prod.zeaz.dev  192.168.1.122  00:0C:29:B5:F4:09
-core.zeaz.dev  192.168.1.123  MAC pending verification
+PoliceDBC-SEA       192.168.1.10   48:4D:7E:D4:3A:C6
+core.zeaz.dev       192.168.1.100  00:0C:29:75:A6:D4
+RITRUECHAI-AP01     192.168.1.101  88:DC:96:55:58:E4
+RITRUECHAI-AP02     192.168.1.102  88:DC:96:55:58:E7
+BOONNAK-AP01        192.168.1.103  88:DC:96:55:58:F0
+BOONNAK-AP02        192.168.1.104  88:DC:96:55:58:DE
+SARASIN-AP02        192.168.1.105  88:DC:96:55:58:ED
+SARASIN-AP01        192.168.1.106  88:DC:96:55:58:EA
+PANKHONGCHUEN-AP01  192.168.1.107  88:DC:96:55:58:F3
+PANKHONGCHUEN-AP02  192.168.1.108  88:DC:96:55:58:E1
+ha-a.zeaz.dev       192.168.1.119  00:0C:29:B7:22:AF
+ha-b.zeaz.dev       192.168.1.120  00:0C:29:72:EF:42
+wifi.zeaz.dev       192.168.1.238  E4:90:2A:40:61:21
+EWS1200D-10T        192.168.1.239  88:DC:96:53:0F:55
 ~~~
+
+### PROD blocker
+
+The supplied inventory also reports `prod.zeaz.dev = 192.168.1.101`. That address is already assigned to `RITRUECHAI-AP01`. zOS therefore withholds the PROD DHCP/DNS binding rather than creating a duplicate IP. Resolve the inventory conflict before enabling any PROD binding.
+
+The previous repository values `prod=.122` and `core=.123` are obsolete and must not be restored as current topology.
 
 ## 9. Update automation
 

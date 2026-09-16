@@ -4,8 +4,10 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${OMEGA_ENV_FILE:-$ROOT/config/topology.env}"
 [[ -f "$ENV_FILE" ]] || ENV_FILE="$ROOT/config/topology.env.example"
+_LIVE_APPLY="${OMEGA_ALLOW_LIVE_APPLY:-}"
 # shellcheck disable=SC1090
 source "$ENV_FILE"
+[[ -n "$_LIVE_APPLY" ]] && OMEGA_ALLOW_LIVE_APPLY="$_LIVE_APPLY"
 
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=20 -o ServerAliveCountMax=3)
 TARGET="${ROUTER_SSH_USER}@${ROUTER_HOST}"

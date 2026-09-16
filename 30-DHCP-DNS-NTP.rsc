@@ -3,11 +3,7 @@
 # zOS owns only the verified LAN DHCP/DNS contract below. Conflicting live
 # objects are preserved and cause this phase to fail rather than being rewritten.
 # Fixed infrastructure is excluded from the dynamic pool to prevent duplicate IPs.
-# IMPORTANT: the supplied inventory contains a PROD/AP01 duplicate at .101. Fail
-# before any mutation so a conflict cannot leave the router partially normalized.
-:if ([:len [/ip dhcp-server lease find where address="192.168.1.101" and mac-address="88:DC:96:55:58:E4"]] > 0) do={
-    :error "PROD inventory conflict: prod.zeaz.dev is reported as 192.168.1.101 while RITRUECHAI-AP01 owns 192.168.1.101; DHCP/DNS phase withheld"
-}
+# Existing unowned DHCP servers and upstream DNS resolver state are preserved.
 
 :local desiredRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
 :if ([:len [/ip pool find where name="lan-pool"]] = 0) do={
@@ -19,6 +15,7 @@
     }
 }
 
+# Do not delete unrelated DHCP servers. zOS creates/manages only lan-dhcp.
 :if ([:len [/ip dhcp-server find where name="lan-dhcp"]] = 0) do={
     /ip dhcp-server add name=lan-dhcp interface=bridgeLocal address-pool=lan-pool lease-time=12h authoritative=yes disabled=no comment="OMEGA-MANAGED LAN DHCP"
 } else={
@@ -39,8 +36,9 @@
 # Every fixed lease below is an observed MAC/IP pair supplied as verified inventory.
 :local leaseId
 :local fixedHosts {
-    "48:4D:7E:D4:3A:C6=192.168.1.10=PoliceDBC-SEA";
-    "00:0C:29:75:A6:D4=192.168.1.100=core.zeaz.dev";
+    "48:4D:7E:D4:3A:C6=192.168.1.100=PoliceDBC-SEA";
+    "00:0C:29:75:A6:D4=192.168.1.123=core.zeaz.dev";
+    "00:0C:29:B5:F4:09=192.168.1.122=prod.zeaz.dev";
     "00:0C:29:B7:22:AF=192.168.1.119=ha-a.zeaz.dev";
     "00:0C:29:72:EF:42=192.168.1.120=ha-b.zeaz.dev";
     "88:DC:96:55:58:E4=192.168.1.101=RITRUECHAI-AP01";
@@ -76,19 +74,26 @@
     }
 }
 
-/ip dns set allow-remote-requests=yes
+# Preserve the existing global upstream DNS resolver configuration. Only enable
+# local recursive requests when the existing policy already permits local DNS.
+:local dnsBefore [/ip dns get allow-remote-requests]
+:if ($dnsBefore = true) do={
+    /ip dns set allow-remote-requests=yes
+} else={
+    :log info "OMEGA: preserving upstream DNS allow-remote-requests=no"
+}
 
 :local dnsId
 :set dnsId [/ip dns static find where name="core.zeaz.dev"]
-:if ([:len $dnsId] = 0) do={ /ip dns static add name=core.zeaz.dev address=192.168.1.100 ttl=1d comment="OMEGA-MANAGED zeaz core" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.100") do={ :error "core.zeaz.dev DNS conflicts with verified address" } }
+:if ([:len $dnsId] = 0) do={ /ip dns static add name=core.zeaz.dev address=192.168.1.123 ttl=1d comment="OMEGA-MANAGED zeaz core" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.123") do={ :error "core.zeaz.dev DNS conflicts with verified address" } }
+:set dnsId [/ip dns static find where name="prod.zeaz.dev"]
+:if ([:len $dnsId] = 0) do={ /ip dns static add name=prod.zeaz.dev address=192.168.1.122 ttl=1d comment="OMEGA-MANAGED zeaz prod" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.122") do={ :error "prod.zeaz.dev DNS conflicts with verified address" } }
 :set dnsId [/ip dns static find where name="ha-a.zeaz.dev"]
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=ha-a.zeaz.dev address=192.168.1.119 ttl=1d comment="OMEGA-MANAGED zeaz ha-a" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.119") do={ :error "ha-a.zeaz.dev DNS conflicts with verified address" } }
 :set dnsId [/ip dns static find where name="ha-b.zeaz.dev"]
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=ha-b.zeaz.dev address=192.168.1.120 ttl=1d comment="OMEGA-MANAGED zeaz ha-b" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.120") do={ :error "ha-b.zeaz.dev DNS conflicts with verified address" } }
 :set dnsId [/ip dns static find where name="wifi.zeaz.dev"]
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=wifi.zeaz.dev address=192.168.1.238 ttl=1d comment="OMEGA-MANAGED ZeaZ WiFi repeater" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.238") do={ :error "wifi.zeaz.dev DNS conflicts with verified address" } }
-
-# prod.zeaz.dev is deliberately withheld until the .101 conflict is resolved.
 
 /system clock set time-zone-name=Asia/Bangkok
 /system ntp client set enabled=yes

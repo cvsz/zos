@@ -51,15 +51,16 @@ grep -q '192.168.200.1' 00-PRECHECK.rsc || err 'precheck missing upstream gatewa
 grep -q '^ROUTER_WAN_MODE=dhcp$' config/topology.env.example || err 'topology must declare DHCP WAN'
 grep -q '^ROUTER_WAN_INTERFACE=ether1$' config/topology.env.example || err 'topology must declare ether1 WAN'
 grep -q '^ROUTER_LAN_BRIDGE=bridgeLocal$' config/topology.env.example || err 'topology must declare bridgeLocal LAN'
-grep -q '^DEV_LAN_IP=192\.168\.1\.100$' config/topology.env.example || err 'CORE target address missing'
+grep -q '^DEV_LAN_IP=192\.168\.1\.123$' config/topology.env.example || err 'CORE target address missing'
 grep -q '^DEV_LAN_MAC=00:0C:29:75:A6:D4$' config/topology.env.example || err 'CORE MAC missing'
-grep -q '^PROD_LAN_IP=192\.168\.1\.101$' config/topology.env.example || err 'reported PROD LAN address missing'
-grep -q '^PROD_LAN_MAC=$' config/topology.env.example || err 'PROD MAC must remain unset while inventory is unresolved'
-grep -q '^PROD_LAN_STATUS=CONFLICT_WITH_RITRUECHAI_AP01$' config/topology.env.example || err 'PROD/AP01 conflict marker missing'
+grep -q '^PROD_LAN_IP=192\.168\.1\.122$' config/topology.env.example || err 'PROD target address missing'
+grep -q '^PROD_LAN_MAC=00:0C:29:B5:F4:09$' config/topology.env.example || err 'PROD MAC missing'
+grep -q '^PROD_LAN_STATUS=VERIFIED_REPOSITORY_BASELINE$' config/topology.env.example || err 'PROD baseline marker missing'
 
 # Fixed host inventory and local DNS.
-grep -q '48:4D:7E:D4:3A:C6=192.168.1.10=PoliceDBC-SEA' 30-DHCP-DNS-NTP.rsc || err 'PoliceDBC reservation missing'
-grep -q '00:0C:29:75:A6:D4=192.168.1.100=core.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'CORE reservation missing'
+grep -q '48:4D:7E:D4:3A:C6=192.168.1.100=PoliceDBC-SEA' 30-DHCP-DNS-NTP.rsc || err 'PoliceDBC reservation missing'
+grep -q '00:0C:29:75:A6:D4=192.168.1.123=core.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'CORE reservation missing'
+grep -q '00:0C:29:B5:F4:09=192.168.1.122=prod.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'PROD reservation missing'
 grep -q '00:0C:29:B7:22:AF=192.168.1.119=ha-a.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-A reservation missing'
 grep -q '00:0C:29:72:EF:42=192.168.1.120=ha-b.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-B reservation missing'
 grep -q '88:DC:96:55:58:E4=192.168.1.101=RITRUECHAI-AP01' 30-DHCP-DNS-NTP.rsc || err 'RITRUECHAI-AP01 reservation missing'
@@ -74,11 +75,9 @@ grep -q 'E4:90:2A:40:61:21=192.168.1.238=ZEAZ Wifi Repeater' 30-DHCP-DNS-NTP.rsc
 grep -q '88:DC:96:53:0F:55=192.168.1.239=EWS1200D-10T' 30-DHCP-DNS-NTP.rsc || err 'EWS1200D reservation missing'
 grep -q 'wifi\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'WiFi DNS record missing'
 grep -q 'core\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'CORE DNS record missing'
+grep -q 'prod\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'PROD DNS record missing'
 grep -q 'ha-a\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-A DNS record missing'
 grep -q 'ha-b\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-B DNS record missing'
-if grep -Fq '00:0C:29:B5:F4:09' 30-DHCP-DNS-NTP.rsc; then err 'obsolete PROD MAC must not remain in active DHCP/DNS phase'; fi
-if grep -Eq 'prod\.zeaz\.dev.*192\.168\.1\.122|192\.168\.1\.122.*prod\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc; then err 'obsolete PROD .122 mapping remains in active DHCP/DNS phase'; fi
-if ! grep -Fq 'PROD inventory conflict' 30-DHCP-DNS-NTP.rsc; then err 'PROD/AP01 conflict gate missing'; fi
 
 # Ownership boundaries: active phases must preserve unrelated live state.
 grep -Fq 'refusing implicit WAN/LAN topology takeover' 20-NETWORK-NORMALIZE.rsc || err 'network phase must fail closed on ether1 bridge conflicts'

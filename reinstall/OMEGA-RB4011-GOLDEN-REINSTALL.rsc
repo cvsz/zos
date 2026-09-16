@@ -2,7 +2,6 @@
 # RouterOS 7.24.x / MikroTik RB4011iGS+
 # Verified topology: ether1 DHCP WAN, bridgeLocal LAN 192.168.1.1/24.
 # Use only for clean rebuild/recovery; this script does not reset the router itself.
-# PROD .101 is intentionally withheld because .101 conflicts with RITRUECHAI-AP01.
 
 :log warning "OMEGA GOLDEN REINSTALL START"
 /system identity set name="OMEGA-RB4011"
@@ -21,9 +20,12 @@
 :if ([:len [/ip address find where address="192.168.1.1/24" and interface="bridgeLocal"]] = 0) do={ /ip address add address=192.168.1.1/24 interface=bridgeLocal comment="OMEGA LAN gateway" }
 :if ([:len [/ip dhcp-client find where interface="ether1"]] = 0) do={ /ip dhcp-client add interface=ether1 add-default-route=yes default-route-distance=1 use-peer-dns=yes use-peer-ntp=yes disabled=no comment="OMEGA WAN DHCP" }
 
+# Clean-rebuild source of truth for local names. Upstream resolver settings are
+# inherited from the WAN DHCP client and are not replaced by hard-coded servers.
 /ip dns set allow-remote-requests=yes
 /ip dns static
-add name=core.zeaz.dev address=192.168.1.100 ttl=1d comment="OMEGA core"
+add name=core.zeaz.dev address=192.168.1.123 ttl=1d comment="OMEGA core"
+add name=prod.zeaz.dev address=192.168.1.122 ttl=1d comment="OMEGA prod"
 add name=ha-a.zeaz.dev address=192.168.1.119 ttl=1d comment="OMEGA ha-a"
 add name=ha-b.zeaz.dev address=192.168.1.120 ttl=1d comment="OMEGA ha-b"
 add name=wifi.zeaz.dev address=192.168.1.238 ttl=1d comment="OMEGA ZeaZ WiFi repeater"
@@ -32,8 +34,9 @@ add name=wifi.zeaz.dev address=192.168.1.238 ttl=1d comment="OMEGA ZeaZ WiFi rep
 /ip dhcp-server network add address=192.168.1.0/24 gateway=192.168.1.1 dns-server=192.168.1.1 comment="OMEGA LAN"
 /ip dhcp-server add name=lan-dhcp interface=bridgeLocal address-pool=lan-pool lease-time=12h authoritative=yes disabled=no
 /ip dhcp-server lease
-add server=lan-dhcp address=192.168.1.10 mac-address=48:4D:7E:D4:3A:C6 comment="PoliceDBC-SEA"
-add server=lan-dhcp address=192.168.1.100 mac-address=00:0C:29:75:A6:D4 comment="core.zeaz.dev"
+add server=lan-dhcp address=192.168.1.100 mac-address=48:4D:7E:D4:3A:C6 comment="PoliceDBC-SEA"
+add server=lan-dhcp address=192.168.1.123 mac-address=00:0C:29:75:A6:D4 comment="core.zeaz.dev"
+add server=lan-dhcp address=192.168.1.122 mac-address=00:0C:29:B5:F4:09 comment="prod.zeaz.dev"
 add server=lan-dhcp address=192.168.1.101 mac-address=88:DC:96:55:58:E4 comment="RITRUECHAI-AP01"
 add server=lan-dhcp address=192.168.1.102 mac-address=88:DC:96:55:58:E7 comment="RITRUECHAI-AP02"
 add server=lan-dhcp address=192.168.1.103 mac-address=88:DC:96:55:58:F0 comment="BOONNAK-AP01"

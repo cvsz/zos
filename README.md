@@ -17,13 +17,13 @@ zOS is the ZeaZDev management and safety control plane for MikroTik RouterOS. Ro
 - Router: MikroTik RB4011iGS+, RouterOS 7.24.2+.
 - WAN: DHCP client on `ether1`; observed lease `192.168.202.91/21`, upstream gateway `192.168.200.1`. The lease is runtime evidence and must not be hard-coded.
 - LAN: `bridgeLocal = 192.168.1.1/24`; `ether2`-`ether10` and `sfp-sfpplus1` remain LAN bridge ports.
-- `PoliceDBC-SEA = 192.168.1.10`, MAC `48:4D:7E:D4:3A:C6`.
-- `core.zeaz.dev = 192.168.1.100`, MAC `00:0C:29:75:A6:D4`.
+- `PoliceDBC-SEA = 192.168.1.100`, MAC `48:4D:7E:D4:3A:C6`.
+- `core.zeaz.dev = 192.168.1.123`, MAC `00:0C:29:75:A6:D4`.
+- `prod.zeaz.dev = 192.168.1.122`, MAC `00:0C:29:B5:F4:09`; this existing repository baseline is retained.
 - `ha-a.zeaz.dev = 192.168.1.119`, MAC `00:0C:29:B7:22:AF`.
 - `ha-b.zeaz.dev = 192.168.1.120`, MAC `00:0C:29:72:EF:42`.
 - WiFi infrastructure is fixed at `.101-.108`, `.238`, and `.239` with the MAC mappings documented in `README-INFRA.md` and `ENVIRONMENTS.md`.
-- The dynamic DHCP pool excludes all fixed infrastructure addresses.
-- `prod.zeaz.dev` is currently reported as `192.168.1.101`, which conflicts with verified `RITRUECHAI-AP01 = 192.168.1.101`; the PROD DHCP/DNS binding is therefore withheld until reconciled.
+- The dynamic DHCP pool excludes all fixed infrastructure addresses, including `.100-.108`, `.119`, `.120`, `.122`, `.123`, `.238`, and `.239`.
 - NAT is restricted to `192.168.1.0/24 -> WAN`.
 - DEV/controller FQDN: `core.zeaz.dev`; PROD FQDN: `prod.zeaz.dev`.
 - CORE physical interface: `ens33`; WireGuard interface: `policedbc`.
@@ -40,7 +40,7 @@ default via 192.168.1.1 dev ens33
 
 ## Reinstall / recovery source of truth
 
-Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` for a clean RouterOS rebuild. It encodes the verified `ether1` DHCP WAN and `bridgeLocal` LAN topology and the verified fixed host inventory. The reported PROD `.101` address is deliberately not configured because it collides with RITRUECHAI-AP01. Always dry-run and maintain a recovery path before live apply.
+Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` for a clean RouterOS rebuild. It encodes the verified `ether1` DHCP WAN and `bridgeLocal` LAN topology and the verified fixed host inventory, including the existing `core=.123` and `prod=.122` repository baseline. Always dry-run and maintain a recovery path before live apply.
 
 ## Quick start
 

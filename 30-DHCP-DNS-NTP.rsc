@@ -3,6 +3,12 @@
 # zOS owns only the verified LAN DHCP/DNS contract below. Conflicting live
 # objects are preserved and cause this phase to fail rather than being rewritten.
 # Fixed infrastructure is excluded from the dynamic pool to prevent duplicate IPs.
+# IMPORTANT: the supplied inventory contains a PROD/AP01 duplicate at .101. Fail
+# before any mutation so a conflict cannot leave the router partially normalized.
+:if ([:len [/ip dhcp-server lease find where address="192.168.1.101" and mac-address="88:DC:96:55:58:E4"]] > 0) do={
+    :error "PROD inventory conflict: prod.zeaz.dev is reported as 192.168.1.101 while RITRUECHAI-AP01 owns 192.168.1.101; DHCP/DNS phase withheld"
+}
+
 :local desiredRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
 :if ([:len [/ip pool find where name="lan-pool"]] = 0) do={
     /ip pool add name=lan-pool ranges=$desiredRanges comment="OMEGA-MANAGED"
@@ -30,10 +36,8 @@
     :if ([/ip dhcp-server network get $netId dns-server] != "192.168.1.1") do={ :error "LAN DHCP DNS differs from contract; refusing takeover" }
 }
 
-# Do not delete unrelated DHCP servers or overwrite global upstream DNS.
 # Every fixed lease below is an observed MAC/IP pair supplied as verified inventory.
 :local leaseId
-
 :local fixedHosts {
     "48:4D:7E:D4:3A:C6=192.168.1.10=PoliceDBC-SEA";
     "00:0C:29:75:A6:D4=192.168.1.100=core.zeaz.dev";
@@ -72,13 +76,6 @@
     }
 }
 
-# PROD is currently reported at .101, but .101 is simultaneously the verified
-# RITRUECHAI-AP01 address above. Do not create a second reservation or DNS record
-# until the operator resolves this duplicate-IP inventory conflict.
-:if ([:len [/ip dhcp-server lease find where address="192.168.1.101" and mac-address="88:DC:96:55:58:E4"]] > 0) do={
-    :error "PROD inventory conflict: prod.zeaz.dev is reported as 192.168.1.101 while RITRUECHAI-AP01 owns 192.168.1.101; PROD DNS/lease withheld"
-}
-
 /ip dns set allow-remote-requests=yes
 
 :local dnsId
@@ -91,8 +88,7 @@
 :set dnsId [/ip dns static find where name="wifi.zeaz.dev"]
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=wifi.zeaz.dev address=192.168.1.238 ttl=1d comment="OMEGA-MANAGED ZeaZ WiFi repeater" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.238") do={ :error "wifi.zeaz.dev DNS conflicts with verified address" } }
 
-# prod.zeaz.dev is deliberately not written while its reported address conflicts
-# with RITRUECHAI-AP01. This phase must fail closed rather than create split-brain DNS.
+# prod.zeaz.dev is deliberately withheld until the .101 conflict is resolved.
 
 /system clock set time-zone-name=Asia/Bangkok
 /system ntp client set enabled=yes

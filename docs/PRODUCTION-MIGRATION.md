@@ -22,8 +22,9 @@ This document records the migration from the historical clean-slate design to th
 ## Fixed LAN inventory
 
 ~~~text
-PoliceDBC-SEA       192.168.1.10   48:4D:7E:D4:3A:C6
-core.zeaz.dev       192.168.1.100  00:0C:29:75:A6:D4
+PoliceDBC-SEA       192.168.1.100  48:4D:7E:D4:3A:C6
+core.zeaz.dev       192.168.1.123  00:0C:29:75:A6:D4
+prod.zeaz.dev       192.168.1.122  00:0C:29:B5:F4:09
 RITRUECHAI-AP01     192.168.1.101  88:DC:96:55:58:E4
 RITRUECHAI-AP02     192.168.1.102  88:DC:96:55:58:E7
 BOONNAK-AP01        192.168.1.103  88:DC:96:55:58:F0
@@ -38,11 +39,13 @@ wifi.zeaz.dev       192.168.1.238  E4:90:2A:40:61:21
 EWS1200D-10T        192.168.1.239  88:DC:96:53:0F:55
 ~~~
 
-## PROD reconciliation blocker
+## Address authority
 
-The supplied inventory also reports `prod.zeaz.dev = 192.168.1.101`, but `.101` is already assigned to `RITRUECHAI-AP01`. No PROD MAC was supplied in the new inventory. The RouterOS phase therefore withholds the PROD DHCP/DNS binding until the duplicate IP is resolved.
+The existing repository baseline remains authoritative for the two VM addresses: `core=.123` and `prod=.122`. The newly supplied inventory adds the verified WiFi infrastructure and confirms `PoliceDBC-SEA=.100`; it does not reassign CORE or PROD.
 
-The previous repository mappings `prod=.122` and `core=.123` are historical and are not current topology evidence.
+## Ownership and preservation
+
+The active DHCP phase manages only its named `lan-dhcp` object and verified fixed leases. It must not delete or disable unrelated DHCP servers. Existing upstream DNS resolver configuration is preserved; zOS adds only the local records required by the verified contract.
 
 ## Deprecated assumptions
 

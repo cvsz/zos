@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: all validate docs evidence security-evidence release-check release-package release status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
+.PHONY: all validate docs evidence security-evidence release-check release-package release status audit backup dry-run apply verify e2e migrate-legacy-dhcp core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
 
 all: validate docs evidence security-evidence zos
 
@@ -51,6 +51,10 @@ apply:
 
 verify:
 	./tools/deploy-phases.sh verify
+
+migrate-legacy-dhcp:
+	@echo "Legacy DHCP quarantine requires OMEGA_ALLOW_LEGACY_DHCP_MIGRATION=1 and OMEGA_ALLOW_LIVE_APPLY=1"
+	./tools/migrate-legacy-dhcp.sh
 
 e2e:
 	./tools/e2e-check.sh

@@ -54,6 +54,7 @@ Use `make backup` and `make dry-run` before any approved live change.
 | `evidence-validation.yml` | corpus and generated security evidence | no |
 | `routeros-skills.yml` | vendored RouterOS skill integrity | no |
 | `zos-build.yml` | tarball and OCI package build | no |
+| `security-scan.yml` | Trivy filesystem and controller-image HIGH/CRITICAL vulnerability gates | no |
 
 The optional self-hosted runner probe remains validation-only.
 

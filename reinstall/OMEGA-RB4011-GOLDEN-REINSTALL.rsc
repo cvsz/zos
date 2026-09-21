@@ -4,6 +4,15 @@
 # Use only for clean rebuild/recovery; this script does not reset the router itself.
 
 :log warning "OMEGA GOLDEN REINSTALL START"
+
+# This is a clean-rebuild artifact, not a live-normalization script. Refuse to
+# run on an already configured production router where duplicate/partial state
+# could otherwise be created.
+:if ([:len [/ip pool find where name="lan-pool"]] > 0) do={ :error "GOLDEN REINSTALL REFUSED: lan-pool already exists; reset/clean the target first" }
+:if ([:len [/ip dhcp-server find where name="lan-dhcp"]] > 0) do={ :error "GOLDEN REINSTALL REFUSED: lan-dhcp already exists; reset/clean the target first" }
+:if ([:len [/interface wireguard find where name="wg-remote"]] > 0) do={ :error "GOLDEN REINSTALL REFUSED: wg-remote already exists; reset/clean the target first" }
+:if ([:len [/ip firewall filter find where chain="ZEAZ-PoliceDBC-INPUT"]] > 0) do={ :error "GOLDEN REINSTALL REFUSED: managed firewall chain already exists; reset/clean the target first" }
+
 /system identity set name="OMEGA-RB4011"
 
 :if ([:len [/interface bridge find where name="DBC-Bridge-Local"]] = 0) do={ /interface bridge add name=DBC-Bridge-Local protocol-mode=rstp comment="OMEGA LAN" }
@@ -14,6 +23,7 @@
 
 :if ([:len [/interface list find where name="WAN"]] = 0) do={ /interface list add name=WAN }
 :if ([:len [/interface list find where name="LAN"]] = 0) do={ /interface list add name=LAN }
+:if ([:len [/interface list find where name="VPN"]] = 0) do={ /interface list add name=VPN }
 :if ([:len [/interface list member find where list="WAN" and interface="ether1"]] = 0) do={ /interface list member add list=WAN interface=ether1 }
 :if ([:len [/interface list member find where list="LAN" and interface="DBC-Bridge-Local"]] = 0) do={ /interface list member add list=LAN interface=DBC-Bridge-Local }
 
@@ -50,30 +60,57 @@ add server=lan-dhcp address=192.168.1.119 mac-address=00:0C:29:B7:22:AF comment=
 add server=lan-dhcp address=192.168.1.120 mac-address=00:0C:29:72:EF:42 comment="ha-b.zeaz.dev"
 add server=lan-dhcp address=192.168.1.238 mac-address=E4:90:2A:40:61:21 comment="ZEAZ Wifi Repeater"
 
-/ip firewall nat add chain=srcnat action=masquerade src-address=192.168.1.0/24 out-interface-list=WAN comment="OMEGA LAN to WAN"
+/interface wireguard add name=wg-remote listen-port=51820 mtu=1420 comment="PoliceDBC: VPN"
+/ip address add address=10.8.0.1/24 interface=wg-remote comment="PoliceDBC: VPN GATEWAY"
+/interface list member add list=VPN interface=wg-remote comment="OMEGA-MANAGED"
+/interface wireguard peers add interface=wg-remote public-key="HPe+0n/v9HL+0DtcvhNg+GnHwdkgDZertP5NHdZNwW8=" allowed-address=10.8.0.2/32 comment="core.zeaz.dev"
+
 /ip firewall filter
-add chain=input action=accept connection-state=established,related,untracked comment="OMEGA-FW input established"
-add chain=input action=drop connection-state=invalid comment="OMEGA-FW input invalid"
-add chain=input action=accept protocol=icmp comment="OMEGA-FW input ICMP"
-add chain=input action=accept in-interface-list=LAN src-address=192.168.1.0/24 comment="OMEGA-FW LAN manage router"
-add chain=input action=accept protocol=udp dst-port=67,68 in-interface=ether1 comment="OMEGA-FW WAN DHCP client"
-add chain=input action=drop in-interface-list=WAN comment="OMEGA-FW drop WAN to router"
-add chain=forward action=accept connection-state=established,related,untracked comment="OMEGA-FW forward established"
-add chain=forward action=drop connection-state=invalid comment="OMEGA-FW forward invalid"
-add chain=forward action=accept in-interface-list=LAN out-interface-list=WAN src-address=192.168.1.0/24 comment="OMEGA-FW LAN to WAN"
-add chain=forward action=accept in-interface-list=LAN out-interface-list=LAN src-address=192.168.1.0/24 dst-address=192.168.1.0/24 comment="OMEGA-FW LAN east-west"
-add chain=forward action=drop in-interface-list=WAN connection-state=new connection-nat-state=!dstnat comment="OMEGA-FW drop unsolicited WAN"
+add chain=input action=jump jump-target=ZEAZ-PoliceDBC-INPUT place-before=0 comment="ZEAZ-PoliceDBC: INPUT POLICY"
+add chain=forward action=jump jump-target=ZEAZ-PoliceDBC-FORWARD place-before=0 comment="ZEAZ-PoliceDBC: FORWARD POLICY"
+add chain=ZEAZ-PoliceDBC-INPUT action=accept connection-state=established,related,untracked comment="PoliceDBC: INPUT Established Related"
+add chain=ZEAZ-PoliceDBC-INPUT action=drop connection-state=invalid comment="PoliceDBC: INPUT Invalid Drop"
+add chain=ZEAZ-PoliceDBC-INPUT action=accept protocol=icmp comment="PoliceDBC: INPUT ICMP"
+add chain=ZEAZ-PoliceDBC-INPUT action=accept protocol=udp in-interface-list=WAN dst-port=51820 comment="PoliceDBC: INPUT WireGuard WAN"
+add chain=ZEAZ-PoliceDBC-INPUT action=accept in-interface-list=LAN comment="PoliceDBC: INPUT LAN Management"
+add chain=ZEAZ-PoliceDBC-INPUT action=accept in-interface-list=VPN comment="PoliceDBC: INPUT VPN Management"
+add chain=ZEAZ-PoliceDBC-INPUT action=drop comment="PoliceDBC: INPUT DEFAULT DENY"
+add chain=ZEAZ-PoliceDBC-FORWARD action=fasttrack-connection connection-state=established,related comment="PoliceDBC: FORWARD FastTrack"
+add chain=ZEAZ-PoliceDBC-FORWARD action=accept connection-state=established,related,untracked comment="PoliceDBC: FORWARD Established Related"
+add chain=ZEAZ-PoliceDBC-FORWARD action=drop connection-state=invalid comment="PoliceDBC: FORWARD Invalid Drop"
+add chain=ZEAZ-PoliceDBC-FORWARD action=accept src-address=192.168.1.0/24 in-interface-list=LAN out-interface-list=WAN comment="PoliceDBC: FORWARD LAN to WAN"
+add chain=ZEAZ-PoliceDBC-FORWARD action=accept src-address=10.8.0.0/24 in-interface-list=VPN out-interface-list=WAN comment="PoliceDBC: FORWARD VPN to WAN"
+add chain=ZEAZ-PoliceDBC-FORWARD action=accept src-address=10.8.0.0/24 dst-address=192.168.1.0/24 in-interface-list=VPN out-interface-list=LAN comment="PoliceDBC: FORWARD VPN to LAN"
+add chain=ZEAZ-PoliceDBC-FORWARD action=accept src-address=192.168.1.0/24 dst-address=10.8.0.0/24 in-interface-list=LAN out-interface-list=VPN comment="PoliceDBC: FORWARD LAN to VPN"
+add chain=ZEAZ-PoliceDBC-FORWARD action=drop comment="PoliceDBC: FORWARD DEFAULT DENY"
+
+/ip firewall nat
+add chain=srcnat action=jump jump-target=ZEAZ-PoliceDBC-SRCNAT place-before=0 comment="ZEAZ-PoliceDBC: SRCNAT POLICY"
+add chain=ZEAZ-PoliceDBC-SRCNAT action=masquerade src-address=192.168.1.0/24 out-interface-list=WAN comment="PoliceDBC: NAT LAN to WAN"
+add chain=ZEAZ-PoliceDBC-SRCNAT action=masquerade src-address=10.8.0.0/24 out-interface-list=WAN comment="PoliceDBC: NAT VPN to WAN"
 
 /ip service set telnet disabled=yes
 /ip service set ftp disabled=yes
 /ip service set www disabled=yes
+/ip service set www-ssl disabled=yes
 /ip service set api disabled=yes
 /ip service set api-ssl disabled=yes
-/ip service set ssh disabled=no address=192.168.1.0/24
-/ip service set winbox disabled=no address=192.168.1.0/24
+/ip service set ssh disabled=no port=22 address=192.168.1.0/24,10.8.0.0/24
+/ip service set winbox disabled=no port=8291 address=192.168.1.0/24,10.8.0.0/24
+:if ([:len [/ip service find where name="reverse-proxy"]] > 0) do={ /ip service set reverse-proxy disabled=yes }
+/ip ssh set strong-crypto=yes
+/tool bandwidth-server set enabled=no
+/ip proxy set enabled=no
+/ip socks set enabled=no
+/ip upnp set enabled=no
 /ip neighbor discovery-settings set discover-interface-list=LAN
-/tool mac-server set allowed-interface-list=LAN
+/tool mac-server set allowed-interface-list=none
 /tool mac-server mac-winbox set allowed-interface-list=LAN
+/tool mac-server ping set enabled=no
+
+/system logging add topics=firewall action=memory comment="OMEGA-MANAGED"
+/system logging add topics=wireguard action=memory comment="OMEGA-MANAGED"
+/system logging add topics=critical action=memory comment="OMEGA-MANAGED"
 
 :delay 3s
 :put "===== OMEGA VERIFY ====="
@@ -84,8 +121,9 @@ add chain=forward action=drop in-interface-list=WAN connection-state=new connect
 /ip dhcp-server lease print detail
 /ip route print detail
 /ip firewall nat print detail
-:do { /ping 192.168.200.1 count=3 } on-error={ :log warning "OMEGA: upstream gateway ping failed" }
-:do { /ping 1.1.1.1 count=3 } on-error={ :log warning "OMEGA: Internet ping failed" }
+:if ([/ping 192.168.200.1 count=3] = 0) do={ :error "GOLDEN VERIFY FAIL: upstream gateway unreachable" }
+:if ([/ping 1.1.1.1 count=3] = 0) do={ :error "GOLDEN VERIFY FAIL: Internet unreachable" }
+:put [/resolve cloudflare.com]
 /export file=OMEGA-RB4011-AFTER-REINSTALL
 :log warning "OMEGA GOLDEN REINSTALL COMPLETE"
 :put "OMEGA GOLDEN REINSTALL COMPLETE"

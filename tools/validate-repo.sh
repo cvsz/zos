@@ -25,6 +25,8 @@ required=(
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh .dockerignore
   .github/workflows/validate.yml .github/workflows/zos-build.yml
+  .github/workflows/evidence-validation.yml .github/workflows/routeros-skills.yml
+  .github/workflows/security-scan.yml .github/dependabot.yml
 )
 for f in "${required[@]}"; do [[ -f "$f" ]] || err "missing required file: $f"; done
 
@@ -126,6 +128,21 @@ grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'
 grep -Fq '/system package update set channel=' tools/routeros-auto-update.sh && err 'update-check must not persistently set RouterOS update channel'
 grep -Fq 'RouterOS update did not change the running version' tools/routeros-auto-update.sh || err 'auto-update lacks post-reboot version-change verification'
+
+# Supply-chain and clean-rebuild safety.
+if grep -RInE "uses:[[:space:]]*[^@[:space:]]+@(v[0-9]+|main|master|latest)([[:space:]]|$)" .github/workflows; then
+  err 'GitHub Actions must be pinned to immutable commit SHAs'
+fi
+grep -Eq '^FROM .+@sha256:[0-9a-f]{64}$' zOS/Dockerfile || err 'controller base image must be pinned by digest'
+grep -Fq 'aquasecurity/trivy-action@' .github/workflows/security-scan.yml || err 'Trivy security scan workflow missing'
+grep -Fq 'severity: HIGH,CRITICAL' .github/workflows/security-scan.yml || err 'Trivy HIGH/CRITICAL gate missing'
+grep -Fq 'package-ecosystem: github-actions' .github/dependabot.yml || err 'Dependabot GitHub Actions updates missing'
+grep -Fq 'package-ecosystem: docker' .github/dependabot.yml || err 'Dependabot Docker updates missing'
+grep -Fq 'GOLDEN REINSTALL REFUSED: lan-pool already exists' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must refuse configured DHCP targets'
+grep -Fq '/interface wireguard add name=wg-remote' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must converge WireGuard baseline'
+grep -Fq 'ZEAZ-PoliceDBC-INPUT' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must converge managed firewall baseline'
+grep -Fq 'OMEGA_BACKUP_PASSWORD_DIR=/var/lib/zeaz-mikrotik/secrets' systemd/omega-routeros-update.service || err 'update service must isolate backup secret storage'
+grep -Fq 'SECRET_DIR=/var/lib/zeaz-mikrotik/secrets' tools/install-update-monitor.sh || err 'update monitor installer must provision isolated secret storage'
 
 # Fail-closed environment defaults.
 grep -q '^PROD_ALLOW_PASSWORD=no$' prod/.env.example || err 'PROD SSH password authentication must fail closed in template'

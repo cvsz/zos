@@ -4,6 +4,15 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Supply-chain and recovery follow-up
+- Pin GitHub Actions to immutable commit SHAs and pin the controller Alpine base image by digest.
+- Add Dependabot coverage for GitHub Actions and Docker updates.
+- Add Trivy filesystem and controller-image HIGH/CRITICAL vulnerability gates.
+- Harden Docker build context exclusions for local topology, backups, state, environment files, and key material.
+- Make the golden reinstall refuse already-configured managed targets and converge the current WireGuard, firewall/NAT, service-hardening, and observability baseline.
+- Provision a dedicated root-only secret directory for unattended RouterOS backup passwords.
+
+
 ### Production safety hardening
 - Make Safe Mode apply transactional so `/quit` is reachable only after every phase, including assertion verification, succeeds.
 - Bind dry-run evidence to the exact target router fingerprint, topology config hash, git commit, phase hashes, and a one-hour freshness window.

@@ -4,8 +4,10 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_DIR=/opt/zeaz-mikrotik
 ETC_DIR=/etc/zeaz-mikrotik
+SECRET_DIR=/var/lib/zeaz-mikrotik/secrets
 
 sudo install -d -m 0755 "$INSTALL_DIR" "$INSTALL_DIR/tools" "$INSTALL_DIR/state" "$INSTALL_DIR/backups" "$ETC_DIR"
+sudo install -d -m 0700 "$SECRET_DIR"
 sudo install -m 0755 "$ROOT/tools/omega-router.sh" "$INSTALL_DIR/tools/omega-router.sh"
 sudo install -m 0755 "$ROOT/tools/routeros-auto-update.sh" "$INSTALL_DIR/tools/routeros-auto-update.sh"
 

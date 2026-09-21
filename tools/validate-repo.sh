@@ -73,7 +73,7 @@ grep -q '88:DC:96:55:58:EA=192.168.1.56=SARASIN-AP01' 30-DHCP-DNS-NTP.rsc || err
 grep -q '88:DC:96:55:58:F3=192.168.1.57=PANKHONGCHUEN-AP01' 30-DHCP-DNS-NTP.rsc || err 'PANKHONGCHUEN-AP01 reservation missing'
 grep -q '88:DC:96:55:58:E1=192.168.1.58=PANKHONGCHUEN-AP02' 30-DHCP-DNS-NTP.rsc || err 'PANKHONGCHUEN-AP02 reservation missing'
 grep -q 'E4:90:2A:40:61:21=192.168.1.238=ZEAZ Wifi Repeater' 30-DHCP-DNS-NTP.rsc || err 'WiFi repeater reservation missing'
-grep -Fq ':local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"' 30-DHCP-DNS-NTP.rsc || err 'DHCP pool does not exclude all fixed infrastructure'
+grep -Fq ':local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121-192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"' 30-DHCP-DNS-NTP.rsc || err 'DHCP pool does not exclude all fixed infrastructure'
 if grep -Eq '/ip dhcp-server lease set .*server=lan-dhcp' 30-DHCP-DNS-NTP.rsc; then err 'existing DHCP leases must not set textual server=lan-dhcp (RouterOS ambiguity risk)'; fi
 grep -q 'wifi\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'WiFi DNS record missing'
 grep -q 'core\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'CORE DNS record missing'

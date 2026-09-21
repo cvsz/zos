@@ -68,7 +68,7 @@ make audit
 
 The active phase stack assumes the live router already matches the verified WAN/LAN split. If `ether1` is still bridged or another unowned object conflicts with the contract, normalization fails closed instead of silently taking ownership. RouterOS-generated dynamic interface-list memberships (for example Detect Internet classifying `ether1` as LAN) are observational state and are not treated as explicit ownership conflicts; only static list memberships block normalization.
 
-For a clean rebuild, use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` through an operator-controlled console/MAC-WinBox recovery path; do not use the live phase stack as a substitute for clean-install bootstrap.
+For a clean rebuild, use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` through an operator-controlled console/MAC-WinBox recovery path. The golden script now refuses targets that already contain the managed DHCP/WireGuard/firewall state; reset/clean the recovery target first. Do not use it as a live-normalization script.
 
 ## 5. Back up
 
@@ -98,7 +98,7 @@ Active production phases:
 99-VERIFY-HEALTH.rsc
 ~~~
 
-The controller uses unique temporary RouterOS filenames for dry-runs and removes them after the import attempt. A successful dry-run records a SHA-256 manifest of the exact active phase files. Any later phase change makes that manifest stale and blocks live apply until dry-run succeeds again.
+The controller uses unique temporary RouterOS filenames for dry-runs and removes them after the import attempt. A successful dry-run records the exact phase SHA-256 manifest plus the reviewed git commit, topology-file hash, target router identity/board/architecture/RouterOS version, and timestamp. Live apply rejects evidence older than `OMEGA_DRY_RUN_MAX_AGE_SECONDS` (default 3600 seconds), a different target/runtime, a changed topology file, a different commit, or changed phase content.
 
 Historical clean-slate/PPPoE/alternate-WireGuard paths are not part of the active production phase sequence.
 
@@ -119,9 +119,9 @@ export OMEGA_ALLOW_LIVE_APPLY=1
 make apply
 ~~~
 
-When Safe Mode is required, zOS uses one interactive RouterOS CLI session for all phase imports, requires RouterOS to confirm `[Safe Mode taken]`, and requires the explicit `OMEGA_APPLY_PASS` sentinel before treating the operation as successful. A failed phase or missing Safe Mode confirmation fails closed.
+Production apply always requires both a current dry-run and RouterOS Safe Mode; the previous bypass branches are intentionally disabled. zOS uses one interactive RouterOS CLI session, waits for `[Safe Mode taken]`, sends exactly one phase at a time, and waits for `OMEGA_PHASE_PASS` before sending the next phase. A phase failure, timeout, Safe Mode hijack/release, or missing sentinel stops the sequence and exits with Ctrl-D so RouterOS rolls back the current Safe Mode transaction. Only after `99-VERIFY-HEALTH.rsc` passes inside Safe Mode does zOS emit `OMEGA_APPLY_PASS` and commit the verified transaction.
 
-Do not bypass this workflow with ad-hoc individual imports for ordinary production changes. Do not release Safe Mode until independent verification succeeds.
+Do not bypass this workflow with ad-hoc individual imports for ordinary production changes. Keep a recovery-capable management path open for the entire transaction. MikroTik Safe Mode history is finite, so production phases must remain bounded and reviewable rather than becoming bulk migration engines.
 
 ## 8. Verify
 

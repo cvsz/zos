@@ -30,6 +30,7 @@ Commands:
   apply-safe <files...>     Apply all files in one interactive RouterOS Safe Mode session
   verify                    Run read-only post-change verification
   fingerprint               Print stable target/config fingerprint for dry-run binding
+  legacy-dhcp-status        Read-only legacy DHCP/pool migration status
   fetch-export <name>       Download <name>.rsc from router
 EOF
 }
@@ -53,6 +54,10 @@ fingerprint() {
   printf 'router_user=%s\n' "$ROUTER_SSH_USER"
   printf 'env_sha256=%s\n' "$env_sha"
   ssh_mt ':put ("identity=" . [/system identity get name]); :put ("board=" . [/system resource get board-name]); :put ("version=" . [/system resource get version]); :put ("architecture=" . [/system resource get architecture-name])'
+}
+
+legacy_dhcp_status() {
+  ssh_mt ':put "===== POOLS ====="; /ip pool print detail; :put "===== POOL USAGE ====="; /ip pool used print detail; :put "===== DHCP SERVERS ====="; /ip dhcp-server print detail; :put "===== DHCP NETWORKS ====="; /ip dhcp-server network print detail; :put "===== LEGACY ADDRESS ====="; /ip address print detail where address="192.168.0.0/24"; :put "===== LEGACY ARP ====="; /ip arp print detail where address~"^192\\.168\\.(0|10)\\."'
 }
 
 backup() {
@@ -220,6 +225,7 @@ case "${1:-}" in
   apply-safe) shift; apply_safe "$@" ;;
   verify) verify ;;
   fingerprint) fingerprint ;;
+  legacy-dhcp-status) legacy_dhcp_status ;;
   fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
   *) usage; exit 2 ;;
 esac

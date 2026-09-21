@@ -4,6 +4,15 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Legacy DHCP quarantine migration
+- เพิ่ม one-shot guarded migration สำหรับตัด fallback chain `lan-pool -> zeaz-pool -> wifi-pool -> lan-pool` โดยไม่ลบ legacy pool objects
+- refuse migration ถ้ามี legacy pool usage, DHCP reference, ARP/lease, WAN DHCP server หรือ topology ไม่ตรงกับ inspected state
+- ถอนเฉพาะ legacy DHCP networks `192.168.0.0/24`, `192.168.10.0/24` และ legacy bridge address `192.168.0.0/24`
+- migrate production DHCP DNS option ไปที่ RouterOS `192.168.1.1` หลังยืนยัน `allow-remote-requests=yes`
+- เพิ่ม `make migrate-legacy-dhcp` ที่บังคับ repo validation, encrypted backup, RouterOS dry-run, Safe Mode และ explicit opt-in สองชั้น
+- เพิ่ม read-only `legacy-dhcp-status` และ runbook อ้างอิง MikroTik official manual
+
+
 ### Live topology drift precheck
 - Reject any enabled DHCP server bound to WAN `ether1`.
 - Reject the observed legacy `192.168.0.0/24` address on `DBC-Bridge-Local` until its ownership and migration are explicitly resolved.

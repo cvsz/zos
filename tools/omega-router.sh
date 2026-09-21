@@ -43,7 +43,7 @@ status() {
 }
 
 audit() {
-  ssh_mt '/system identity print; /system resource print; /interface print; /interface bridge port print; /interface list member print; /ip address print detail; /ip route print detail; /ip dhcp-server print detail; /ip dhcp-server network print detail; /ip dhcp-server lease print detail; /interface wireguard print detail; /interface wireguard peers print detail; /ip firewall filter print detail; /ip firewall nat print detail; /ip service print detail; /log print'
+  ssh_mt '/system identity print; /system resource print; /interface print; /interface bridge port print; /interface list member print; /ip address print detail; /ip route print detail; /ip pool print detail; /ip pool used print detail; /ip dhcp-server print detail; /ip dhcp-server network print detail; /ip dhcp-server lease print detail; /interface wireguard print detail; /interface wireguard peers print detail; /ip firewall filter print detail; /ip firewall nat print detail; /ip service print detail; /log print'
 }
 
 fingerprint() {
@@ -134,7 +134,7 @@ apply_safe() {
     exit 4
   }
 
-  # One RouterOS :do transaction. /quit exists only on the success path.
+  # One RouterOS error-aware transaction. /quit exists only on the success path.
   # Sentinels are concatenated so terminal input echo cannot be mistaken for
   # an executed PASS/FAIL result.
   cmd=':onerror txError in={'

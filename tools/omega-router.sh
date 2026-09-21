@@ -163,7 +163,7 @@ apply_safe() {
 
   for file in "$@"; do
     remote="$(basename "$file")"
-    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \\$f }" >/dev/null 2>&1 || true
+    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
   done
 
   (( session_rc == 0 )) || { echo 'Safe Mode apply session failed' >&2; exit 4; }
@@ -185,7 +185,7 @@ apply_safe() {
   mkdir -p "$evidence_dir"
   for remote in omega-policedbc-evidence.rsc omega-policedbc-after.rsc; do
     if scp "${SSH_OPTS[@]}" "$TARGET:$remote" "$evidence_dir/$remote" >/dev/null 2>&1; then
-      ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \\$f }" >/dev/null 2>&1 || true
+      ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
     else
       echo "WARN: post-apply evidence file was not available: $remote" >&2
     fi

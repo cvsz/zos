@@ -137,14 +137,14 @@ apply_safe() {
   # One RouterOS :do transaction. /quit exists only on the success path.
   # Sentinels are concatenated so terminal input echo cannot be mistaken for
   # an executed PASS/FAIL result.
-  cmd=':do {'
+  cmd=':onerror txError in={'
   for file in "$@"; do
     [[ -f "$file" && "$file" == *.rsc ]] || { echo "Invalid RSC file: $file" >&2; exit 2; }
     remote="$(basename "$file")"
     scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
-    cmd+=" /import file-name=$remote verbose=yes;"
+    cmd+=" :onerror phaseError in={ /import file-name=$remote verbose=yes } do={ :put (\"OMEGA_PHASE_\" . \"FAIL $remote: \" . \$phaseError); :error (\"OMEGA phase failed $remote: \" . \$phaseError) };"
   done
-  cmd+=' :put ("OMEGA_APPLY_" . "PASS"); /quit } on-error={ :put ("OMEGA_PHASE_" . "FAIL"); :error "OMEGA transactional apply failed" }'
+  cmd+=' :put ("OMEGA_APPLY_" . "PASS"); /quit } do={ :put ("OMEGA_PHASE_" . "FAIL transaction: " . $txError); :error ("OMEGA transactional apply failed: " . $txError) }'
 
   output_file="$(mktemp)"
   command_file="$(mktemp)"

@@ -67,8 +67,10 @@ perform_update() {
   [[ "$ALLOW_REBOOT" == "1" ]] || die 'auto-update requires OMEGA_ALLOW_ROUTER_REBOOT=1 because RouterOS install reboots the router'
   "$ROUTER_CTL" backup
   "$ROUTER_CTL" verify
-  local before after install_rc
+  local before after expected install_rc
   before="$(router_cmd ':put [/system resource get version]' | tr -d '\r')"
+  expected="$(jq -r '.latest_version // empty' "$STATE_DIR/latest.json")"
+  [[ -n "$expected" ]] || die 'update metadata did not contain an expected latest version'
   log "installing RouterOS update from $before; router will reboot"
   set +e
   router_cmd '/system package update install'
@@ -81,7 +83,9 @@ perform_update() {
     if "$ROUTER_CTL" status >/dev/null 2>&1; then
       after="$(router_cmd ':put [/system resource get version]' | tr -d '\r')"
       [[ "$after" != "$before" ]] || die "RouterOS update did not change the running version (still $after)"
+      [[ "$after" == "$expected" ]] || die "RouterOS returned after update at $after, expected $expected"
       collect_update_state >/dev/null
+      jq -e --arg expected "$expected" '.installed_version == $expected and .running_version == $expected' "$STATE_DIR/latest.json" >/dev/null || die 'post-update package/runtime state does not match the expected version'
       notify_server || true
       "$ROUTER_CTL" verify
       log "RouterOS update succeeded: $before -> $after"

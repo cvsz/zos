@@ -112,7 +112,7 @@ grep -q 'OMEGA_REQUIRE_SAFE_MODE' tools/deploy-phases.sh || err 'deploy script d
 grep -Fq '[Safe Mode taken]' tools/omega-router.sh || err 'RouterOS apply helper does not require Safe Mode confirmation'
 grep -Fq 'OMEGA_APPLY_PASS' tools/omega-router.sh || err 'RouterOS apply helper does not require phase success confirmation'
 grep -Fq 'flock -n' tools/omega-router.sh || err 'Safe Mode apply must reject concurrent controller-side runs'
-grep -Fq "| tee \"\$output_file\"" tools/omega-router.sh || err 'Safe Mode apply output must stream in real time'
+grep -Fq 'tee -a "$output_file"' tools/omega-router.sh || err 'Safe Mode apply output must stream in real time'
 grep -Fq 'Hijacking Safe Mode from someone' tools/omega-router.sh || err 'Safe Mode apply must surface stale/external Safe Mode ownership'
 grep -Fq "printf '\\004'" tools/omega-router.sh || err 'Safe Mode failure path must explicitly send Ctrl-D rollback'
 grep -Fq 'OMEGA_PHASE_PASS' tools/omega-router.sh || err 'Safe Mode apply must wait for per-phase success sentinels'
@@ -144,67 +144,8 @@ grep -q '^RUNNER_ALLOW_UNTRUSTED_FORKS=0$' runner/.env.example || err 'runner en
 grep -q '^RUNNER_ALLOW_LIVE_ROUTEROS_APPLY=0$' runner/.env.example || err 'runner env must block live RouterOS apply by default'
 grep -q '^ROUTEROS_UPDATE_CHANNEL=stable$' config/topology.env.example || err 'stable RouterOS update channel missing'
 grep -q '^OMEGA_AUTO_ROUTEROS_UPDATE=0$' config/topology.env.example || err 'safe auto-update default missing'
-grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0
-
-if grep -Eiq '192\.168\.205\.251|bridge-lan|core\.zeaz\.internal|192\.168\.1\.128' 00-PRECHECK.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc config/topology.env.example README.md ENVIRONMENTS.md; then
-  err 'active production sources still contain legacy topology values'
-fi
-
-if [[ -f core/install-ssh-key.sh ]]; then
-  grep -Fq 'ssh-keygen -y' core/install-ssh-key.sh || err 'SSH installer must validate private key material with ssh-keygen -y'
-  grep -Fq 'ssh-keygen -lf' core/install-ssh-key.sh || err 'SSH installer must validate public key fingerprint'
-  ! grep -Eq 'cvsz@192\.168\.1\.100|cvsz@192\.168\.1\.123' core/install-ssh-key.sh || err 'SSH installer contains a hard-coded target address'
-fi
-
-if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then err 'core/install.sh contains an APT signature-bypass pattern'; fi
-grep -Fq "SSH_ALLOW_PASSWORD=\"\${SSH_ALLOW_PASSWORD:-no}\"" core/install.sh || err 'CORE SSH password authentication is not fail-closed by default'
-grep -Fq 'D55C0D1AC78A8D8126CB631CFC9CA96ACA026560' core/install.sh || err 'HashiCorp APT signing-key fingerprint is not pinned'
-grep -Fq 'Password authentication is disabled by default' core/install.sh || err 'CORE installer lacks authorized_keys lockout prevention'
-grep -Fq 'trap - RETURN' core/install.sh || err 'HashiCorp temp cleanup trap is not self-clearing'
-
-# Third-party GitHub Actions must be immutable commit pins, not floating major tags.
-if grep -RInE --include='*.yml' --include='*.yaml' 'uses:[[:space:]]+[^[:space:]#]+@v[0-9]+' .github/workflows; then
-  err 'GitHub Actions workflows contain floating major-version action references'
-fi
-
-if command -v shellcheck >/dev/null 2>&1; then
-  mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
-  (("${#shells[@]}" == 0)) || shellcheck "${shells[@]}"
-else
-  echo 'WARN: shellcheck not installed; shell validation skipped'
-fi
-
-(( fail == 0 )) || exit 1
-echo 'Repository safety validation PASS'
- config/topology.env.example || err 'safe reboot default missing'
-grep -q '^OMEGA_DRY_RUN_MAX_AGE_SECONDS=3600
-
-if grep -Eiq '192\.168\.205\.251|bridge-lan|core\.zeaz\.internal|192\.168\.1\.128' 00-PRECHECK.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc config/topology.env.example README.md ENVIRONMENTS.md; then
-  err 'active production sources still contain legacy topology values'
-fi
-
-if [[ -f core/install-ssh-key.sh ]]; then
-  grep -Fq 'ssh-keygen -y' core/install-ssh-key.sh || err 'SSH installer must validate private key material with ssh-keygen -y'
-  grep -Fq 'ssh-keygen -lf' core/install-ssh-key.sh || err 'SSH installer must validate public key fingerprint'
-  ! grep -Eq 'cvsz@192\.168\.1\.100|cvsz@192\.168\.1\.123' core/install-ssh-key.sh || err 'SSH installer contains a hard-coded target address'
-fi
-
-if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then err 'core/install.sh contains an APT signature-bypass pattern'; fi
-grep -Fq "SSH_ALLOW_PASSWORD=\"\${SSH_ALLOW_PASSWORD:-no}\"" core/install.sh || err 'CORE SSH password authentication is not fail-closed by default'
-grep -Fq 'D55C0D1AC78A8D8126CB631CFC9CA96ACA026560' core/install.sh || err 'HashiCorp APT signing-key fingerprint is not pinned'
-grep -Fq 'Password authentication is disabled by default' core/install.sh || err 'CORE installer lacks authorized_keys lockout prevention'
-grep -Fq 'trap - RETURN' core/install.sh || err 'HashiCorp temp cleanup trap is not self-clearing'
-
-if command -v shellcheck >/dev/null 2>&1; then
-  mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
-  (("${#shells[@]}" == 0)) || shellcheck "${shells[@]}"
-else
-  echo 'WARN: shellcheck not installed; shell validation skipped'
-fi
-
-(( fail == 0 )) || exit 1
-echo 'Repository safety validation PASS'
- config/topology.env.example || err 'dry-run freshness default missing'
+grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' config/topology.env.example || err 'safe reboot default missing'
+grep -q '^OMEGA_DRY_RUN_MAX_AGE_SECONDS=3600$' config/topology.env.example || err 'dry-run freshness default missing'
 grep -Fq 'config/topology.env' .dockerignore || err '.dockerignore must exclude populated topology config'
 grep -Fq 'backups' .dockerignore || err '.dockerignore must exclude local backups'
 grep -Fq 'state' .dockerignore || err '.dockerignore must exclude runtime state'
@@ -233,6 +174,11 @@ grep -Fq "SSH_ALLOW_PASSWORD=\"\${SSH_ALLOW_PASSWORD:-no}\"" core/install.sh || 
 grep -Fq 'D55C0D1AC78A8D8126CB631CFC9CA96ACA026560' core/install.sh || err 'HashiCorp APT signing-key fingerprint is not pinned'
 grep -Fq 'Password authentication is disabled by default' core/install.sh || err 'CORE installer lacks authorized_keys lockout prevention'
 grep -Fq 'trap - RETURN' core/install.sh || err 'HashiCorp temp cleanup trap is not self-clearing'
+
+# Third-party GitHub Actions must be immutable commit pins, not floating major tags.
+if grep -RInE --include='*.yml' --include='*.yaml' 'uses:[[:space:]]+[^[:space:]#]+@v[0-9]+' .github/workflows; then
+  err 'GitHub Actions workflows contain floating major-version action references'
+fi
 
 if command -v shellcheck >/dev/null 2>&1; then
   mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)

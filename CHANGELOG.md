@@ -4,6 +4,19 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Production safety audit hardening
+- Make RouterOS Safe Mode apply sequential: each phase must emit an explicit PASS before the next phase is sent; a phase failure sends Ctrl-D so the in-flight Safe Mode transaction is rolled back before commit.
+- Move production assertions into `99-VERIFY-HEALTH.rsc`, including exact DHCP pool/fixed reservations, EnGenius .50-.58 mappings, WireGuard identity, firewall anchors, default route, upstream/Internet reachability, and DNS.
+- Bind dry-run evidence to the reviewed git commit, topology hash, target identity/board/architecture/RouterOS version, exact phase hashes, and a one-hour freshness window.
+- Remove production dry-run/Safe Mode bypass behavior while keeping explicit `OMEGA_ALLOW_LIVE_APPLY=1` operator approval.
+- Reject WireGuard identity drift and foreign rules inside zOS-managed firewall/NAT chains.
+- Retain post-change RouterOS evidence exports on the controller with timestamped filenames.
+- Package releases from `git archive HEAD` only, require a clean synchronized `main`, and block release while a project-wide LICENSE is undeclared.
+- Add a strict `.dockerignore`, pin Alpine to an explicit patch release, pin third-party GitHub Actions to reviewed commit SHAs, add Dependabot policy, and add Trivy filesystem/container vulnerability gates.
+- Make `zos doctor` fail when the CORE routing invariant fails and make RouterOS update acceptance require the exact expected target version.
+- Harden the golden reinstall path with clean-target preconditions and converge WireGuard, VPN firewall/NAT, management-service hardening, and observability with the production stack.
+
+
 ### Safe Mode apply operator visibility
 - Stream RouterOS Safe Mode output in real time instead of buffering the entire interactive SSH session until exit.
 - Add a controller-side `flock` guard so a second `apply-safe` run cannot start while another is active.

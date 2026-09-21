@@ -31,6 +31,7 @@ Commands:
   verify                    Run read-only post-change verification
   fingerprint               Print stable target/config fingerprint for dry-run binding
   legacy-dhcp-status        Read-only legacy DHCP/pool migration status
+  wifi-single-network-status Read-only single-network Wi-Fi RouterOS status
   fetch-export <name>       Download <name>.rsc from router
 EOF
 }
@@ -58,6 +59,10 @@ fingerprint() {
 
 legacy_dhcp_status() {
   ssh_mt ':put "===== POOLS ====="; /ip pool print detail; :put "===== POOL USAGE ====="; /ip pool used print detail; :put "===== DHCP SERVERS ====="; /ip dhcp-server print detail; :put "===== DHCP NETWORKS ====="; /ip dhcp-server network print detail; :put "===== LEGACY ADDRESS ====="; /ip address print detail where address="192.168.0.0/24"; :put "===== LEGACY ARP ====="; /ip arp print detail where address~"^192\\.168\\.(0|10)\\."'
+}
+
+wifi_single_network_status() {
+  ssh_mt ':put "===== WIFI SINGLE NETWORK ====="; :put "===== LAN GATEWAY ====="; /ip address print detail where address="192.168.1.1/24" and interface="DBC-Bridge-Local"; :put "===== DHCP SERVER ====="; /ip dhcp-server print detail where name="lan-dhcp"; :put "===== DHCP NETWORK ====="; /ip dhcp-server network print detail where address="192.168.1.0/24"; :put "===== LAN POOL ====="; /ip pool print detail where name="lan-pool"; :put "===== ENGENIUS DHCP ====="; /ip dhcp-server lease print detail where mac-address~"88:DC:96"; :put "===== ENGENIUS ARP ====="; /ip arp print detail where mac-address~"88:DC:96"; :put "===== LEGACY INDICATORS ====="; /ip address print detail where address="192.168.0.0/24"; /ip dhcp-server network print detail where address="192.168.0.0/24"; /ip dhcp-server network print detail where address="192.168.10.0/24"'
 }
 
 backup() {
@@ -226,6 +231,7 @@ case "${1:-}" in
   verify) verify ;;
   fingerprint) fingerprint ;;
   legacy-dhcp-status) legacy_dhcp_status ;;
+  wifi-single-network-status) wifi_single_network_status ;;
   fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
   *) usage; exit 2 ;;
 esac

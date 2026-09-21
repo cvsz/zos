@@ -8,10 +8,10 @@
 # This is a clean-rebuild artifact, not a live-normalization script. Refuse to
 # run on an already configured production router where duplicate/partial state
 # could otherwise be created.
-:if ([:len [/ip pool find where name="lan-pool"]] > 0) do={ :error "GOLDEN REINSTALL REFUSED: lan-pool already exists; reset/clean the target first" }
-:if ([:len [/ip dhcp-server find where name="lan-dhcp"]] > 0) do={ :error "GOLDEN REINSTALL REFUSED: lan-dhcp already exists; reset/clean the target first" }
-:if ([:len [/interface wireguard find where name="wg-remote"]] > 0) do={ :error "GOLDEN REINSTALL REFUSED: wg-remote already exists; reset/clean the target first" }
-:if ([:len [/ip firewall filter find where chain="ZEAZ-PoliceDBC-INPUT"]] > 0) do={ :error "GOLDEN REINSTALL REFUSED: managed firewall chain already exists; reset/clean the target first" }
+:if ([/ip pool print count-only where name="lan-pool"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: lan-pool already exists; reset/clean the target first" }
+:if ([/ip dhcp-server print count-only where name="lan-dhcp"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: lan-dhcp already exists; reset/clean the target first" }
+:if ([/interface wireguard print count-only where name="wg-remote"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: wg-remote already exists; reset/clean the target first" }
+:if ([/ip firewall filter print count-only where chain="ZEAZ-PoliceDBC-INPUT"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: managed firewall chain already exists; reset/clean the target first" }
 
 /system identity set name="OMEGA-RB4011"
 

@@ -154,7 +154,10 @@ apply_safe() {
     scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
     cmd+=" /import file-name=$remote verbose=yes;"
   done
-  cmd+=' :put ("OMEGA_APPLY_" . "PASS"); /quit } on-error={ :put ("OMEGA_PHASE_" . "FAIL"); :error "OMEGA transactional apply failed" }'
+  cmd+=' :put ("OMEGA_APPLY_" . "PASS") } on-error={ :put ("OMEGA_PHASE_" . "FAIL"); :error "OMEGA transactional apply failed" }'
+  # Commit happens in the driver with a second Ctrl-X ("Releasing Safe Mode").
+  # /quit inside Safe Mode unrolls on RouterOS 7.25beta4, so the driver sends
+  # /quit only after the release returns to a normal prompt.
 
   output_file="$(mktemp)"
   command_file="$(mktemp)"
@@ -166,6 +169,8 @@ apply_safe() {
     --target "$TARGET"
     --command-file "$command_file"
     --output-file "$output_file"
+    --safe-timeout 60
+    --transaction-timeout 600
   )
   if [[ -n "${ROUTER_SSH_KEY:-}" ]]; then
     driver_args+=(--identity "$ROUTER_SSH_KEY")

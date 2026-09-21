@@ -8,6 +8,7 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 - Stream RouterOS Safe Mode output in real time instead of buffering the entire interactive SSH session until exit.
 - Add a controller-side `flock` guard so a second `apply-safe` run cannot start while another is active.
 - Surface RouterOS Safe Mode hijack prompts so stale/external ownership is visible instead of appearing as a silent hang.
+- Keep repository validation ShellCheck-clean while asserting the realtime streaming and locking safeguards.
 
 
 ### RouterOS dynamic interface-list ownership guard

@@ -22,8 +22,8 @@ zOS is the ZeaZDev management and safety control plane for MikroTik RouterOS. Ro
 - `prod.zeaz.dev = 192.168.1.122`, MAC `00:0C:29:B5:F4:09`; this existing repository baseline is retained.
 - `ha-a.zeaz.dev = 192.168.1.119`, MAC `00:0C:29:B7:22:AF`.
 - `ha-b.zeaz.dev = 192.168.1.120`, MAC `00:0C:29:72:EF:42`.
-- WiFi infrastructure is fixed at `.101-.108`, `.238`, and `.239` with the MAC mappings documented in `README-INFRA.md` and `ENVIRONMENTS.md`.
-- The dynamic DHCP pool excludes all fixed infrastructure addresses, including `.100-.108`, `.119`, `.120`, `.122`, `.123`, `.238`, and `.239`.
+- EnGenius infrastructure is fixed at controller `.50` and EWS310AP `.51-.58`; `wifi.zeaz.dev` remains `.238`, with MAC mappings documented in `README-INFRA.md` and `ENVIRONMENTS.md`.
+- The dynamic DHCP pool excludes all fixed infrastructure addresses, including `.50-.58`, `.100`, `.119`, `.120`, `.122`, `.123`, and `.238`.
 - NAT is restricted to `192.168.1.0/24 -> WAN`.
 - DEV/controller FQDN: `core.zeaz.dev`; PROD FQDN: `prod.zeaz.dev`.
 - CORE physical interface: `ens33`; WireGuard interface: `policedbc`.

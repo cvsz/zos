@@ -15,6 +15,10 @@ MIGRATION="$ROOT/migrations/20260921-legacy-dhcp-quarantine.rsc"
   exit 3
 }
 
+echo "Validating repository safety before legacy DHCP quarantine..."
+"$ROOT/tools/validate-repo.sh"
+python3 "$ROOT/tools/validate-docs.py"
+
 echo "Backing up RouterOS before legacy DHCP quarantine..."
 "$CTL" backup
 

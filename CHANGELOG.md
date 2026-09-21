@@ -4,6 +4,18 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Production safety hardening
+- Make Safe Mode apply transactional so `/quit` is reachable only after every phase, including assertion verification, succeeds.
+- Bind dry-run evidence to the exact target router fingerprint, topology config hash, git commit, phase hashes, and a one-hour freshness window.
+- Convert health verification into fail-closed assertions for WAN/LAN, DHCP pool, fixed reservations including EnGenius `.50-.58`, WireGuard, reachability, and DNS.
+- Package releases from tracked Git content only, block release without a project-wide `LICENSE`, and reject non-main/dirty/out-of-sync release state.
+- Add `.dockerignore` protection for local topology, backups, state, environment files, and key material.
+- Fail closed on unowned WireGuard state, peer identity drift, foreign firewall rules, duplicate/disabled policy jumps, duplicate DHCP network records, and duplicate static DNS records.
+- Separate encrypted-backup password storage from backup artifacts by default and retain post-apply RouterOS evidence exports locally.
+- Require RouterOS auto-update to return on the exact version advertised before installation.
+- Make `zos doctor` propagate CORE structural-check failures and wire the controller-generated RouterOS SSH key into local topology config.
+- Expand secret evidence scanning to tracked documentation and example files.
+
 ### Safe Mode apply operator visibility
 - Stream RouterOS Safe Mode output in real time instead of buffering the entire interactive SSH session until exit.
 - Add a controller-side `flock` guard so a second `apply-safe` run cannot start while another is active.

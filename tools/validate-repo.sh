@@ -149,7 +149,7 @@ grep -Fq "/ip dhcp-server network set \$net1 dns-server=192.168.1.1" migrations/
 grep -Fq 'LEGACY DHCP QUARANTINE PASS' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration success assertion missing'
 grep -Fq '/ip pool print count-only where name="lan-pool"' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must count lan-pool with print count-only'
 grep -Fq '/ip dhcp-server network print count-only where address="192.168.1.0/24"' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must count production DHCP network with print count-only'
-if grep -Eq ':len \$(lanPool|wifiPool|zeazPool|legacyAddress|net0|net1|net10|verifyNet1)' migrations/20260921-legacy-dhcp-quarantine.rsc; then err 'legacy migration must not use string/array length of RouterOS internal IDs for uniqueness'; fi
+if grep -Eq ":len \\$(lanPool|wifiPool|zeazPool|legacyAddress|net0|net1|net10|verifyNet1)" migrations/20260921-legacy-dhcp-quarantine.rsc; then err 'legacy migration must not use string/array length of RouterOS internal IDs for uniqueness'; fi
 if grep -Eq '/ip pool remove|remove \[find\]' migrations/20260921-legacy-dhcp-quarantine.rsc; then err 'legacy DHCP migration must not delete pool objects or use broad remove expressions'; fi
 grep -Fq 'https://manual.mikrotik.com/llms.txt' docs/LEGACY-DHCP-MIGRATION.md || err 'legacy DHCP runbook must cite the official MikroTik manual index'
 grep -Fq 'https://manual.mikrotik.com/docs/management-tools/console/' docs/LEGACY-DHCP-MIGRATION.md || err 'legacy DHCP runbook must cite official Safe Mode documentation'

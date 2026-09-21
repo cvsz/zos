@@ -11,7 +11,7 @@ Canonical repository: `cvsz/zos`; default branch: `main`.
 3. run local validation;
 4. open a PR using the template;
 5. require CI and review conversations to pass;
-6. merge through the protected branch;
+6. merge only after required checks/review pass; independently verify that the account-side main ruleset is enabled;
 7. delete the head branch when complete.
 
 ## Workflows
@@ -29,7 +29,7 @@ Normal workflows must not receive production router credentials or perform live 
 
 PRs must state scope, risk, validation, documentation impact, recovery/rollback, and live-system impact. Production-sensitive changes must explain how management access is preserved.
 
-For Cloudflare changes, the PR must identify each hostname, private origin, connector host, Access requirement, and whether live DNS/Tunnel/Access state changed. A repository check does not verify those external systems. PR #29 (`feat/cloudflare-mikrotik-integration`) is an open documentation/template change until GitHub reports otherwise.
+For Cloudflare changes, the PR must identify each hostname, private origin, connector host, Access requirement, and whether live DNS/Tunnel/Access state changed. A repository check does not verify those external systems.
 
 ## Self-hosted runner
 
@@ -56,3 +56,8 @@ For CI/runtime failures, capture sanitized logs and link the exact workflow run/
 ## Administrative settings
 
 See `docs/GITHUB-SETTINGS.md` for recommended rulesets, workflow permissions, security features, and community-health settings.
+
+
+## Current administrative verification gap
+
+Repository code can recommend and validate workflow behavior, but it cannot prove or enforce GitHub account-side rulesets from source alone. Before production acceptance, verify that `main` blocks force-push/delete and requires the selected validation/build/security checks. Also verify repository homepage, Wiki, and merged-branch cleanup settings against `docs/GITHUB-SETTINGS.md`.

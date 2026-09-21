@@ -45,7 +45,7 @@ case "$cmd" in
   doctor)
     "$VALIDATE"
     "$CORE" status || true
-    "$CORE" check || true
+    "$CORE" check
     ;;
   status) "$ROUTER" status ;;
   audit) "$ROUTER" audit ;;

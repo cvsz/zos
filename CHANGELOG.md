@@ -4,6 +4,12 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Live topology drift precheck
+- Reject any enabled DHCP server bound to WAN `ether1`.
+- Reject the observed legacy `192.168.0.0/24` address on `DBC-Bridge-Local` until its ownership and migration are explicitly resolved.
+- Keep these conditions fail-closed rather than deleting unknown live state automatically.
+
+
 ### DHCP fallback-pool drift detection
 - Fail closed when production `lan-pool` points at an unverified `next-pool`.
 - Surface the actual RouterOS error if the legacy-to-production pool-range migration fails.

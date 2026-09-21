@@ -4,6 +4,14 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Single-network Wi-Fi profile
+- เพิ่ม secret-free profile สำหรับ EWS1200D-10T + EWS310AP แบบ 1 SSID / 1 subnet `192.168.1.0/24` / untagged โดยไม่สร้าง Wi-Fi VLAN เพิ่ม
+- กำหนด controller `.50` และ AP reservations `.51-.58` ให้สอดคล้องกับ production DHCP contract
+- เพิ่ม baseline สำหรับ Band Steering, Fast Roaming, Auto Channel/Tx Power และ channel width โดยให้ PSK อยู่ใน EWS controller เท่านั้น
+- เพิ่ม read-only `make wifi-status` เพื่อดู RouterOS-side LAN/DHCP/pool/EnGenius/legacy indicators โดยไม่แก้ live config
+- เพิ่ม runbook อ้างอิง EnGenius official product documentation และ MikroTik manual
+
+
 ### RouterOS object-count guard correction
 - เปลี่ยน one-shot legacy DHCP migration จากการใช้ `:len` กับ internal IDs ที่ได้จาก `find` มาใช้ `print count-only where ...` สำหรับ uniqueness/existence checks ตาม RouterOS CLI semantics
 - ใช้ `find` เฉพาะหลัง count ผ่านแล้ว เพื่อรับ object ID สำหรับ `get/set/remove`

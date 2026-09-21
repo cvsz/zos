@@ -16,10 +16,10 @@ required=(
   docs/INDEX.md docs/ARCHITECTURE.md docs/INSTALLATION.md docs/RUNBOOK.md
   docs/NETWORK-RECOVERY.md docs/SSH-HARDENING.md docs/DISASTER-RECOVERY.md
   docs/PRODUCTION-READINESS.md docs/GITHUB-OPERATIONS.md docs/GITHUB-SETTINGS.md
-  docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md docs/LEGACY-DHCP-MIGRATION.md
+  docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md docs/LEGACY-DHCP-MIGRATION.md docs/WIFI-SINGLE-NETWORK.md
   cloudflare/README.md cloudflare/config.env.example
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
-  .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
+  .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example config/wifi-single-network.env.example
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py tools/test-routeros-safe-session.py
   tools/migrate-legacy-dhcp.sh migrations/20260921-legacy-dhcp-quarantine.rsc
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
@@ -63,6 +63,25 @@ grep -q '^DEV_LAN_MAC=00:0C:29:75:A6:D4$' config/topology.env.example || err 'CO
 grep -q '^PROD_LAN_IP=192\.168\.1\.122$' config/topology.env.example || err 'PROD target address missing'
 grep -q '^PROD_LAN_MAC=00:0C:29:B5:F4:09$' config/topology.env.example || err 'PROD MAC missing'
 grep -q '^PROD_LAN_STATUS=VERIFIED_REPOSITORY_BASELINE$' config/topology.env.example || err 'PROD baseline marker missing'
+
+# Single-network Wi-Fi contract.
+grep -q '^WIFI_MODE=single-network$' config/wifi-single-network.env.example || err 'Wi-Fi profile must remain single-network'
+grep -q '^WIFI_NETWORK=192\.168\.1\.0/24$' config/wifi-single-network.env.example || err 'Wi-Fi profile must use the production LAN subnet'
+grep -q '^WIFI_GATEWAY=192\.168\.1\.1$' config/wifi-single-network.env.example || err 'Wi-Fi profile gateway must be RouterOS LAN'
+grep -q '^WIFI_CONTROLLER_IP=192\.168\.1\.50$' config/wifi-single-network.env.example || err 'Wi-Fi controller address contract missing'
+grep -q '^WIFI_AP_IPS=192\.168\.1\.51,192\.168\.1\.52,192\.168\.1\.53,192\.168\.1\.54,192\.168\.1\.55,192\.168\.1\.56,192\.168\.1\.57,192\.168\.1\.58$' config/wifi-single-network.env.example || err 'Wi-Fi AP address contract missing'
+grep -q '^WIFI_VLAN_MODE=untagged$' config/wifi-single-network.env.example || err 'single-network Wi-Fi must remain untagged'
+grep -q '^WIFI_GUEST_NETWORK=0$' config/wifi-single-network.env.example || err 'single-network Wi-Fi must not enable a separate guest network'
+grep -q '^WIFI_CAPTIVE_PORTAL=0$' config/wifi-single-network.env.example || err 'single-network Wi-Fi must not enable captive portal'
+grep -q '^WIFI_CLIENT_ISOLATION=0$' config/wifi-single-network.env.example || err 'shared LAN Wi-Fi must not isolate clients'
+grep -q '^WIFI_BAND_STEERING=1$' config/wifi-single-network.env.example || err 'Wi-Fi profile must enable band steering'
+grep -q '^WIFI_FAST_ROAMING=1$' config/wifi-single-network.env.example || err 'Wi-Fi profile must enable fast roaming'
+grep -q '^WIFI_PSK_SET_IN_CONTROLLER_ONLY=1$' config/wifi-single-network.env.example || err 'Wi-Fi PSK must remain controller-only'
+if grep -Eiq '(^|_)(PSK|PASSWORD|SECRET|PRIVATE_KEY)=.+' config/wifi-single-network.env.example; then err 'Wi-Fi profile must not contain credentials'; fi
+grep -Fq 'wifi-status:' Makefile || err 'Makefile must expose read-only Wi-Fi status'
+grep -Fq 'wifi-single-network-status) wifi_single_network_status' tools/omega-router.sh || err 'RouterOS helper must expose Wi-Fi status'
+grep -Fq 'https://www.engeniustech.com/apac/products/network-switches/ews1200d-10t/' docs/WIFI-SINGLE-NETWORK.md || err 'Wi-Fi runbook must cite EWS1200D vendor documentation'
+grep -Fq 'https://www.engeniustech.com/apac/products/wireless/indoor-access-points/ews310ap/' docs/WIFI-SINGLE-NETWORK.md || err 'Wi-Fi runbook must cite EWS310AP vendor documentation'
 
 # Fixed host inventory and local DNS.
 grep -q '48:4D:7E:D4:3A:C6=192.168.1.100=PoliceDBC-SEA' 30-DHCP-DNS-NTP.rsc || err 'PoliceDBC reservation missing'

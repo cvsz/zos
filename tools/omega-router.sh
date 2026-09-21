@@ -117,9 +117,43 @@ apply_file() {
   ssh_mt "/import file-name=$remote verbose=yes"
 }
 
+stream_until_token() {
+  local read_fd="$1" ssh_pid="$2" token="$3" timeout_seconds="$4" output_file="$5" abort_token="${6:-}"
+  local ch='' buffer='' started_at=$SECONDS
+
+  while (( SECONDS - started_at < timeout_seconds )); do
+    if IFS= read -r -N 1 -t 1 -u "$read_fd" ch; then
+      printf '%s' "$ch"
+      printf '%s' "$ch" >> "$output_file"
+      buffer+="$ch"
+      if [[ -n "$abort_token" && "$buffer" == *"$abort_token"* ]]; then
+        return 2
+      fi
+      if [[ "$buffer" == *"$token"* ]]; then
+        return 0
+      fi
+      if (( ${#buffer} > 8192 )); then
+        buffer="${buffer: -4096}"
+      fi
+    elif ! kill -0 "$ssh_pid" 2>/dev/null; then
+      return 1
+    fi
+  done
+  return 1
+}
+
+drain_ssh_output() {
+  local read_fd="$1" output_file="$2" ch=''
+  while IFS= read -r -N 1 -u "$read_fd" ch; do
+    printf '%s' "$ch"
+    printf '%s' "$ch" >> "$output_file"
+  done
+}
+
 apply_safe() {
   [[ "${OMEGA_ALLOW_LIVE_APPLY:-0}" == "1" ]] || { echo 'Live apply blocked: OMEGA_ALLOW_LIVE_APPLY=1 is required' >&2; exit 3; }
   local file remote cmd output session_rc output_file apply_state_dir lock_file lock_fd evidence_dir stamp
+  local read_fd write_fd ssh_pid handshake_rc transaction_rc
   (( $# > 0 )) || { echo 'apply-safe requires at least one .rsc file' >&2; exit 2; }
 
   apply_state_dir="${OMEGA_STATE_DIR:-$ROOT/state/deploy}"
@@ -133,8 +167,8 @@ apply_safe() {
   }
 
   # One RouterOS :do transaction. /quit exists only on the success path.
-  # On an import/assertion error, no /quit is sent; stdin closes and the
-  # Safe Mode owner disconnects so RouterOS can roll back floating changes.
+  # Sentinels are concatenated so terminal input echo cannot be mistaken for
+  # an executed PASS/FAIL result.
   cmd=':do {'
   for file in "$@"; do
     [[ -f "$file" && "$file" == *.rsc ]] || { echo "Invalid RSC file: $file" >&2; exit 2; }
@@ -142,24 +176,86 @@ apply_safe() {
     scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
     cmd+=" /import file-name=$remote verbose=yes;"
   done
-  cmd+=' :put "OMEGA_APPLY_PASS"; /quit } on-error={ :put "OMEGA_PHASE_FAIL"; :error "OMEGA transactional apply failed" }'
+  cmd+=' :put ("OMEGA_APPLY_" . "PASS"); /quit } on-error={ :put ("OMEGA_PHASE_" . "FAIL"); :error "OMEGA transactional apply failed" }'
 
   output_file="$(mktemp)"
   trap 'rm -f "${output_file:-}"' RETURN
+
   set +e
-  {
-    printf '\030'
-    sleep 1
-    printf '%s\n' "$cmd"
-  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 | tee "$output_file"
-  session_rc=${PIPESTATUS[1]}
+  coproc OMEGA_SSH { ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1; }
+  read_fd="${OMEGA_SSH[0]}"
+  write_fd="${OMEGA_SSH[1]}"
+  ssh_pid="$OMEGA_SSH_PID"
+
+  # Do not send Ctrl-X until the RouterOS CLI has actually rendered a prompt.
+  stream_until_token "$read_fd" "$ssh_pid" '] >' 15 "$output_file"
+  handshake_rc=$?
+  if (( handshake_rc != 0 )); then
+    echo >&2
+    echo 'RouterOS CLI prompt was not observed; aborting before Safe Mode.' >&2
+    kill "$ssh_pid" 2>/dev/null || true
+    wait "$ssh_pid" 2>/dev/null
+    set -e
+    exit 4
+  fi
+
+  printf '\030' >&"$write_fd"
+  stream_until_token "$read_fd" "$ssh_pid" '[Safe Mode taken]' 10 "$output_file" 'Hijacking Safe Mode from someone'
+  handshake_rc=$?
+  if (( handshake_rc == 2 )); then
+    printf 'd\n' >&"$write_fd"
+    printf '\004' >&"$write_fd"
+    drain_ssh_output "$read_fd" "$output_file"
+    wait "$ssh_pid" 2>/dev/null
+    set -e
+    echo 'RouterOS reported an existing Safe Mode owner; refusing to hijack it.' >&2
+    exit 4
+  elif (( handshake_rc != 0 )); then
+    printf '\004' >&"$write_fd"
+    drain_ssh_output "$read_fd" "$output_file"
+    wait "$ssh_pid" 2>/dev/null
+    set -e
+    echo 'RouterOS did not confirm Safe Mode after Ctrl-X.' >&2
+    exit 4
+  fi
+
+  stream_until_token "$read_fd" "$ssh_pid" '<SAFE>' 5 "$output_file"
+  handshake_rc=$?
+  if (( handshake_rc != 0 )); then
+    printf '\004' >&"$write_fd"
+    drain_ssh_output "$read_fd" "$output_file"
+    wait "$ssh_pid" 2>/dev/null
+    set -e
+    echo 'RouterOS Safe Mode prompt was not observed; rolled back by Ctrl-D.' >&2
+    exit 4
+  fi
+
+  printf '%s\n' "$cmd" >&"$write_fd"
+  stream_until_token "$read_fd" "$ssh_pid" 'OMEGA_APPLY_PASS' 180 "$output_file" 'OMEGA_PHASE_FAIL'
+  transaction_rc=$?
+
+  if (( transaction_rc == 2 )); then
+    printf '\004' >&"$write_fd"
+    drain_ssh_output "$read_fd" "$output_file"
+    wait "$ssh_pid" 2>/dev/null
+    set -e
+    echo 'At least one production phase failed; Ctrl-D requested Safe Mode rollback.' >&2
+    exit 4
+  elif (( transaction_rc != 0 )); then
+    printf '\004' >&"$write_fd"
+    drain_ssh_output "$read_fd" "$output_file"
+    wait "$ssh_pid" 2>/dev/null
+    set -e
+    echo 'Timed out waiting for transactional apply result; Ctrl-D requested Safe Mode rollback.' >&2
+    exit 4
+  fi
+
+  # Success path contains /quit after OMEGA_APPLY_PASS; drain until SSH exits.
+  drain_ssh_output "$read_fd" "$output_file"
+  wait "$ssh_pid"
+  session_rc=$?
   set -e
   output="$(cat "$output_file")"
-
-  grep -Fq 'Hijacking Safe Mode from someone' <<<"$output" && {
-    echo 'RouterOS reported an existing Safe Mode owner; no concurrent apply can be trusted. Clear the stale Safe Mode session before retrying.' >&2
-    exit 4
-  }
 
   for file in "$@"; do
     remote="$(basename "$file")"
@@ -191,6 +287,7 @@ apply_safe() {
     fi
   done
 }
+
 verify() {
   ssh_mt '/system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip dhcp-server print detail; /ip dhcp-server lease print detail where mac-address~"88:DC:96"; /ip firewall filter print stats where comment~"PoliceDBC:"; /ip firewall nat print stats where comment~"PoliceDBC:"; /ip service print; :put ("upstream_replies=" . [/ping 192.168.200.1 count=3]); :put ("internet_replies=" . [/ping 1.1.1.1 count=3]); :put ("cloudflare_dns=" . [/resolve cloudflare.com])'
 }

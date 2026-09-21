@@ -4,6 +4,14 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### RouterOS Safe Mode prompt synchronization
+- Wait for the interactive RouterOS CLI prompt before sending Ctrl-X.
+- Require both `[Safe Mode taken]` and the `<SAFE>` prompt before sending the production transaction.
+- Detect Safe Mode hijack prompts during the handshake and decline ownership.
+- Use split RouterOS PASS/FAIL sentinel strings so terminal input echo cannot be mistaken for executed results.
+- Request Ctrl-D rollback on transactional failure or timeout.
+
+
 ### Retained vulnerability and package evidence
 - Generate Trivy filesystem and controller-image vulnerability SARIF before enforcement gates.
 - Generate a package-aware CycloneDX SBOM from the built controller image.

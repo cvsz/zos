@@ -16,11 +16,12 @@ required=(
   docs/INDEX.md docs/ARCHITECTURE.md docs/INSTALLATION.md docs/RUNBOOK.md
   docs/NETWORK-RECOVERY.md docs/SSH-HARDENING.md docs/DISASTER-RECOVERY.md
   docs/PRODUCTION-READINESS.md docs/GITHUB-OPERATIONS.md docs/GITHUB-SETTINGS.md
-  docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md
+  docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md docs/LEGACY-DHCP-MIGRATION.md
   cloudflare/README.md cloudflare/config.env.example
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py tools/test-routeros-safe-session.py
+  tools/migrate-legacy-dhcp.sh migrations/20260921-legacy-dhcp-quarantine.rsc
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh .dockerignore
@@ -37,7 +38,7 @@ grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documen
 if grep -Eiq '(^|_)(TOKEN|SECRET|PASSWORD|PRIVATE_KEY)=.+' cloudflare/config.env.example; then err 'Cloudflare template contains a populated credential'; fi
 grep -Fq 'cloudflare/config.env' .gitignore || err 'populated Cloudflare config is not ignored'
 
-executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh zOS/bin/zos zOS/install.sh)
+executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/migrate-legacy-dhcp.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh zOS/bin/zos zOS/install.sh)
 for f in "${executables[@]}"; do [[ ! -f "$f" || -x "$f" ]] || err "operational entry point is not executable: $f"; done
 
 active=(00-PRECHECK.rsc 10-BACKUP-SNAPSHOT.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc 40-WIREGUARD-SERVICES.rsc 50-FIREWALL-NAT.rsc 60-OBSERVABILITY.rsc 90-EXPORT-EVIDENCE.rsc 99-VERIFY-HEALTH.rsc)
@@ -129,6 +130,26 @@ grep -Fq 'lan-pool ranges do not match production contract' 99-VERIFY-HEALTH.rsc
 grep -Fq 'lan-pool has unverified next-pool=' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must fail closed on unverified next-pool drift'
 grep -Fq 'lan-pool range migration failed:' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must surface RouterOS pool migration errors'
 grep -Fq 'lan-pool has unexpected next-pool=' 99-VERIFY-HEALTH.rsc || err 'health phase must assert no fallback DHCP pool'
+
+# Guarded one-shot legacy DHCP quarantine migration.
+grep -Fq 'OMEGA_ALLOW_LEGACY_DHCP_MIGRATION' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must require a dedicated explicit opt-in'
+grep -Fq 'OMEGA_ALLOW_LIVE_APPLY' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must also require live-apply opt-in'
+grep -Fq '"$CTL" backup' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must create a backup before mutation'
+grep -Fq '"$CTL" dry-run "$MIGRATION"' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must syntax dry-run before mutation'
+grep -Fq '"$CTL" apply-safe "$MIGRATION"' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must execute in RouterOS Safe Mode'
+grep -Fq 'legacy-dhcp-status' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must perform post-change read-only status'
+grep -Fq 'wifi-pool has active usage' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject active wifi-pool usage'
+grep -Fq 'zeaz-pool has active usage' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject active zeaz-pool usage'
+grep -Fq 'DHCP server still exists on WAN ether1' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject WAN DHCP service'
+grep -Fq 'legacy 192.168.0.x DHCP lease is still present' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject 192.168.0.x leases'
+grep -Fq 'legacy 192.168.10.x DHCP lease is still present' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject 192.168.10.x leases'
+grep -Fq '/ip pool set $lanPool next-pool=none' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must disconnect lan-pool fallback'
+grep -Fq '/ip dhcp-server network set $net1 dns-server=192.168.1.1' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must converge LAN DHCP DNS to RouterOS'
+grep -Fq 'LEGACY DHCP QUARANTINE PASS' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration success assertion missing'
+if grep -Eq '/ip pool remove|remove \[find\]' migrations/20260921-legacy-dhcp-quarantine.rsc; then err 'legacy DHCP migration must not delete pool objects or use broad remove expressions'; fi
+grep -Fq 'https://manual.mikrotik.com/llms.txt' docs/LEGACY-DHCP-MIGRATION.md || err 'legacy DHCP runbook must cite the official MikroTik manual index'
+grep -Fq 'https://manual.mikrotik.com/docs/management-tools/console/' docs/LEGACY-DHCP-MIGRATION.md || err 'legacy DHCP runbook must cite official Safe Mode documentation'
+grep -Fq 'https://manual.mikrotik.com/docs/network-management/dhcp/' docs/LEGACY-DHCP-MIGRATION.md || err 'legacy DHCP runbook must cite official DHCP documentation'
 grep -Fq '88:DC:96:55:58:E7=192.168.1.52=RITRUECHAI-AP02' 99-VERIFY-HEALTH.rsc || err 'health phase must assert EnGenius reservations'
 grep -Fq 'unowned rule found in ZEAZ-PoliceDBC-INPUT' 50-FIREWALL-NAT.rsc || err 'firewall phase must reject foreign rules in owned chains'
 grep -Fq 'CORE WireGuard peer public key differs from verified contract' 40-WIREGUARD-SERVICES.rsc || err 'WireGuard phase must validate peer identity'

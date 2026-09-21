@@ -4,6 +4,14 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### EnGenius DHCP reservation reconciliation
+- Moved `EWS1200D-10T` to reserved `192.168.1.50` and the eight EWS310AP units to `192.168.1.51-.58` using their verified MAC mappings.
+- Updated the LAN pool so `.50-.58`, `.100`, `.119`, `.120`, `.122`, `.123`, and `.238` are excluded from dynamic allocation while the former `.101-.108` and `.239` WiFi addresses return to the dynamic pool.
+- Added controlled migration from the previous EnGenius reservations while unrelated fixed hosts remain fail-closed on address drift.
+- Removed `server=lan-dhcp` updates from existing lease reconciliation to avoid RouterOS `ambiguous value of server` failures; new leases retain the explicit `lan-dhcp` binding without rewriting existing lease ownership.
+- Synchronized the topology template, golden reinstall, validation, environment inventory, runbook, migration guide, and infrastructure reference with the new address contract.
+- Documented that a changed reservation is not operationally complete until RouterOS `active-address` matches the target after a controlled DHCP renew or AP reboot.
+
 ### Router automation and live apply verification
 - Quoted `WIFI_REPEATER_NAME` in `config/topology.env.example` to prevent bash word-splitting errors during environment sourcing.
 - Preserved caller `OMEGA_ALLOW_LIVE_APPLY` override across topology sourcing in `tools/omega-router.sh`.

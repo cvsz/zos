@@ -25,23 +25,23 @@ This document records the migration from the historical clean-slate design to th
 PoliceDBC-SEA       192.168.1.100  48:4D:7E:D4:3A:C6
 core.zeaz.dev       192.168.1.123  00:0C:29:75:A6:D4
 prod.zeaz.dev       192.168.1.122  00:0C:29:B5:F4:09
-RITRUECHAI-AP01     192.168.1.101  88:DC:96:55:58:E4
-RITRUECHAI-AP02     192.168.1.102  88:DC:96:55:58:E7
-BOONNAK-AP01        192.168.1.103  88:DC:96:55:58:F0
-BOONNAK-AP02        192.168.1.104  88:DC:96:55:58:DE
-SARASIN-AP02        192.168.1.105  88:DC:96:55:58:ED
-SARASIN-AP01        192.168.1.106  88:DC:96:55:58:EA
-PANKHONGCHUEN-AP01  192.168.1.107  88:DC:96:55:58:F3
-PANKHONGCHUEN-AP02  192.168.1.108  88:DC:96:55:58:E1
+EWS1200D-10T        192.168.1.50   88:DC:96:53:0F:55
+RITRUECHAI-AP01     192.168.1.51   88:DC:96:55:58:E4
+RITRUECHAI-AP02     192.168.1.52   88:DC:96:55:58:E7
+BOONNAK-AP01        192.168.1.53   88:DC:96:55:58:F0
+BOONNAK-AP02        192.168.1.54   88:DC:96:55:58:DE
+SARASIN-AP02        192.168.1.55   88:DC:96:55:58:ED
+SARASIN-AP01        192.168.1.56   88:DC:96:55:58:EA
+PANKHONGCHUEN-AP01  192.168.1.57   88:DC:96:55:58:F3
+PANKHONGCHUEN-AP02  192.168.1.58   88:DC:96:55:58:E1
 ha-a.zeaz.dev       192.168.1.119  00:0C:29:B7:22:AF
 ha-b.zeaz.dev       192.168.1.120  00:0C:29:72:EF:42
 wifi.zeaz.dev       192.168.1.238  E4:90:2A:40:61:21
-EWS1200D-10T        192.168.1.239  88:DC:96:53:0F:55
 ~~~
 
 ## Address authority
 
-The existing repository baseline remains authoritative for the two VM addresses: `core=.123` and `prod=.122`. The newly supplied inventory adds the verified WiFi infrastructure and confirms `PoliceDBC-SEA=.100`; it does not reassign CORE or PROD.
+The existing repository baseline remains authoritative for the two VM addresses: `core=.123` and `prod=.122`. The EnGenius controller/AP estate is reserved at `.50-.58`; this removes the previous `.101-.108/.239` WiFi allocation without reassigning CORE or PROD. RouterOS reservation migration is not considered operationally complete until each affected AP has renewed DHCP and `active-address` matches its reservation.
 
 ## Ownership and preservation
 

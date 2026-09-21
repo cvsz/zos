@@ -17,15 +17,15 @@ The desired automation identity is a target configuration, not proof that the ac
 
 ~~~text
 wifi.zeaz.dev / ZEAZ Wifi Repeater  192.168.1.238  E4:90:2A:40:61:21
-EWS1200D-10T                     192.168.1.239  88:DC:96:53:0F:55
-RITRUECHAI-AP01                  192.168.1.101  88:DC:96:55:58:E4
-RITRUECHAI-AP02                  192.168.1.102  88:DC:96:55:58:E7
-BOONNAK-AP01                     192.168.1.103  88:DC:96:55:58:F0
-BOONNAK-AP02                     192.168.1.104  88:DC:96:55:58:DE
-SARASIN-AP02                     192.168.1.105  88:DC:96:55:58:ED
-SARASIN-AP01                     192.168.1.106  88:DC:96:55:58:EA
-PANKHONGCHUEN-AP01               192.168.1.107  88:DC:96:55:58:F3
-PANKHONGCHUEN-AP02               192.168.1.108  88:DC:96:55:58:E1
+EWS1200D-10T                     192.168.1.50   88:DC:96:53:0F:55
+RITRUECHAI-AP01                  192.168.1.51   88:DC:96:55:58:E4
+RITRUECHAI-AP02                  192.168.1.52   88:DC:96:55:58:E7
+BOONNAK-AP01                     192.168.1.53   88:DC:96:55:58:F0
+BOONNAK-AP02                     192.168.1.54   88:DC:96:55:58:DE
+SARASIN-AP02                     192.168.1.55   88:DC:96:55:58:ED
+SARASIN-AP01                     192.168.1.56   88:DC:96:55:58:EA
+PANKHONGCHUEN-AP01               192.168.1.57   88:DC:96:55:58:F3
+PANKHONGCHUEN-AP02               192.168.1.58   88:DC:96:55:58:E1
 ~~~
 
 ## Windows runner VM
@@ -51,7 +51,7 @@ PoliceDBC provides the production LAN/WAN/VPN edge:
 - upstream gateway observed from DHCP: `192.168.200.1`;
 - LAN `DBC-Bridge-Local = 192.168.1.1/24`;
 - `ether2`-`ether10` and `sfp-sfpplus1` are LAN bridge ports;
-- DHCP dynamic pool excludes fixed infrastructure `.100-.108`, `.119`, `.120`, `.122`, `.123`, `.238`, `.239`;
+- DHCP dynamic pool excludes fixed infrastructure `.50-.58`, `.100`, `.119`, `.120`, `.122`, `.123`, and `.238`;
 - WireGuard target remains `wg-remote = 10.8.0.1/24`, UDP 51820;
 - CORE peer target `10.8.0.2/32`.
 

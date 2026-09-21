@@ -5,13 +5,20 @@
 # Fixed infrastructure is excluded from the dynamic pool to prevent duplicate IPs.
 # Existing unowned DHCP servers and upstream DNS resolver state are preserved.
 
-:local desiredRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
+:local legacyRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
+:local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121-192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
 :if ([:len [/ip pool find where name="lan-pool"]] = 0) do={
     /ip pool add name=lan-pool ranges=$desiredRanges comment="OMEGA-MANAGED"
 } else={
     :local poolId [/ip pool find where name="lan-pool"]
-    :if ([/ip pool get $poolId ranges] != $desiredRanges) do={
-        :error "lan-pool exists with ranges outside the verified contract; refusing takeover"
+    :local currentRanges [/ip pool get $poolId ranges]
+    :if ($currentRanges = $legacyRanges) do={
+        /ip pool set $poolId ranges=$desiredRanges
+        :log warning "OMEGA: migrated lan-pool to reserve EnGenius .50-.58 and all fixed infrastructure"
+    } else={
+        :if ($currentRanges != $desiredRanges) do={
+            :error "lan-pool exists with ranges outside the verified/legacy contracts; refusing takeover"
+        }
     }
 }
 
@@ -41,36 +48,69 @@
     "00:0C:29:B5:F4:09=192.168.1.122=prod.zeaz.dev";
     "00:0C:29:B7:22:AF=192.168.1.119=ha-a.zeaz.dev";
     "00:0C:29:72:EF:42=192.168.1.120=ha-b.zeaz.dev";
-    "88:DC:96:55:58:E4=192.168.1.101=RITRUECHAI-AP01";
-    "88:DC:96:55:58:E7=192.168.1.102=RITRUECHAI-AP02";
-    "88:DC:96:55:58:F0=192.168.1.103=BOONNAK-AP01";
-    "88:DC:96:55:58:DE=192.168.1.104=BOONNAK-AP02";
-    "88:DC:96:55:58:ED=192.168.1.105=SARASIN-AP02";
-    "88:DC:96:55:58:EA=192.168.1.106=SARASIN-AP01";
-    "88:DC:96:55:58:F3=192.168.1.107=PANKHONGCHUEN-AP01";
-    "88:DC:96:55:58:E1=192.168.1.108=PANKHONGCHUEN-AP02";
-    "E4:90:2A:40:61:21=192.168.1.238=ZEAZ Wifi Repeater";
-    "88:DC:96:53:0F:55=192.168.1.239=EWS1200D-10T"
+    "88:DC:96:53:0F:55=192.168.1.50=EWS1200D-10T";
+    "88:DC:96:55:58:E4=192.168.1.51=RITRUECHAI-AP01";
+    "88:DC:96:55:58:E7=192.168.1.52=RITRUECHAI-AP02";
+    "88:DC:96:55:58:F0=192.168.1.53=BOONNAK-AP01";
+    "88:DC:96:55:58:DE=192.168.1.54=BOONNAK-AP02";
+    "88:DC:96:55:58:ED=192.168.1.55=SARASIN-AP02";
+    "88:DC:96:55:58:EA=192.168.1.56=SARASIN-AP01";
+    "88:DC:96:55:58:F3=192.168.1.57=PANKHONGCHUEN-AP01";
+    "88:DC:96:55:58:E1=192.168.1.58=PANKHONGCHUEN-AP02";
+    "E4:90:2A:40:61:21=192.168.1.238=ZEAZ Wifi Repeater"
 }
+
+:local managedDhcpId [/ip dhcp-server find where name="lan-dhcp"]
+:if ([:len $managedDhcpId] != 1) do={ :error "lan-dhcp must resolve to exactly one DHCP server" }
 
 :foreach item in=$fixedHosts do={
     :local mac [:pick $item 0 [:find $item "="]]
     :local rest [:pick $item ([:find $item "="] + 1) [:len $item]]
     :local address [:pick $rest 0 [:find $rest "="]]
     :local comment [:pick $rest ([:find $rest "="] + 1) [:len $rest]]
+    :local isEngenius ([:pick $mac 0 8] = "88:DC:96")
 
     :set leaseId [/ip dhcp-server lease find where mac-address=$mac]
+    :if ([:len $leaseId] > 1) do={
+        :error ("multiple DHCP leases exist for MAC " . $mac . "; refusing ambiguous rewrite")
+    }
+
     :if ([:len $leaseId] = 0) do={
         :if ([:len [/ip dhcp-server lease find where address=$address]] > 0) do={
             :error ("" . $address . " is occupied by another DHCP lease; refusing to take over for " . $comment)
         }
         /ip dhcp-server lease add server=lan-dhcp address=$address mac-address=$mac comment=$comment
     } else={
-        :if ([/ip dhcp-server lease get $leaseId address] != $address) do={
-            :error ("MAC " . $mac . " has a different lease; refusing rewrite for " . $comment)
+        :local currentAddress [/ip dhcp-server lease get $leaseId address]
+        :local dynamicLease [/ip dhcp-server lease get $leaseId dynamic]
+        :local leaseStatus [/ip dhcp-server lease get $leaseId status]
+
+        :if ($currentAddress != $address) do={
+            :if ($isEngenius != true) do={
+                :error ("MAC " . $mac . " has a different lease; refusing rewrite for " . $comment)
+            }
+            :if ([:len [/ip dhcp-server lease find where address=$address and mac-address!=$mac]] > 0) do={
+                :error ("" . $address . " is occupied by another DHCP lease; refusing EnGenius migration for " . $comment)
+            }
+
+            :if ($dynamicLease = true && $leaseStatus != "bound") do={
+                /ip dhcp-server lease remove $leaseId
+                /ip dhcp-server lease add server=lan-dhcp address=$address mac-address=$mac comment=$comment
+                :set leaseId [/ip dhcp-server lease find where mac-address=$mac and dynamic=no]
+            } else={
+                :if ($dynamicLease = true) do={ /ip dhcp-server lease make-static $leaseId }
+                /ip dhcp-server lease set $leaseId address=$address comment=$comment
+            }
+            :log warning ("OMEGA: migrated EnGenius " . $comment . " from " . $currentAddress . " to " . $address)
+        } else={
+            :if ($dynamicLease = true) do={ /ip dhcp-server lease make-static $leaseId }
+            /ip dhcp-server lease set $leaseId comment=$comment
         }
-        /ip dhcp-server lease make-static $leaseId
-        /ip dhcp-server lease set $leaseId server=lan-dhcp comment=$comment
+
+        :local activeAddress [/ip dhcp-server lease get $leaseId active-address]
+        :if ($isEngenius = true && $activeAddress != "" && $activeAddress != "0.0.0.0" && $activeAddress != $address) do={
+            :log warning ("OMEGA: " . $comment . " reservation is " . $address . " but active-address remains " . $activeAddress . "; renew/reboot this AP in a controlled window")
+        }
     }
 }
 

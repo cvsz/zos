@@ -65,10 +65,8 @@ def write_spdx(files: list[Path], out: Path) -> None:
 
 
 def should_scan(rel: str) -> bool:
-    if rel.startswith(("evidence/corpus/", "evidence/ci/")):
-        return False
-    if rel.endswith((".md", ".example")):
-        return False
+    # Scan all tracked text files. Documentation and example files are common
+    # accidental secret-leak surfaces and must not be exempted.
     return True
 
 

@@ -11,14 +11,17 @@ Security fixes target the current `main` branch unless a specific release branch
 ## Mandatory controls
 
 - never commit passwords, tokens, SSH/WireGuard private keys, runner credentials, RouterOS binary backups, sensitive exports, or populated secret-bearing environment files;
-- production mutation requires audit, backup, dry-run, recovery access, explicit operator opt-in, and post-change verification;
+- production mutation requires audit, backup, target-bound fresh dry-run evidence, recovery access, explicit operator opt-in, sequential Safe Mode phase confirmation, assertive pre-commit verification, and post-change verification;
 - CORE SSH defaults to public-key authentication with password authentication disabled;
 - root SSH login remains disabled;
 - APT signature verification may not be bypassed;
 - HashiCorp signing-key recovery must match the fingerprint pinned in reviewed source;
 - normal GitHub-hosted and self-hosted validation workflows must not silently become production apply channels;
 - untrusted fork pull requests must not execute on the privileged self-hosted runner;
-- validation/secret-scanning rules must not be weakened merely to make CI green.
+- validation/secret-scanning rules must not be weakened merely to make CI green;
+- encrypted RouterOS backups and their decryption secrets must be stored in separate protected paths;
+- release archives must contain tracked reviewed Git content only, never controller-local ignored state;
+- third-party GitHub Actions and controller base images must use reviewed immutable references.
 
 ## Trust boundaries
 
@@ -37,3 +40,8 @@ Include affected commit/version, impact, reproduction conditions, and whether cr
 ## Operational incidents
 
 Availability incidents without a security defect belong in normal support/operations tracking. See `SUPPORT.md`. Security incidents involving possible credential exposure, unauthorized access, or bypass of safety gates should use the private reporting path.
+
+
+## Vulnerability scanning boundary
+
+`tools/generate-security-evidence.py` produces a tracked-file inventory and literal-secret audit; it is not a CVE scanner. GitHub workflow `.github/workflows/security-scan.yml` separately runs Trivy against the repository filesystem and built controller image for HIGH/CRITICAL vulnerability findings. Live RouterOS and host vulnerability posture still requires runtime-specific review and vendor advisories.

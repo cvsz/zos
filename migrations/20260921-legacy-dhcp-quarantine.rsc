@@ -17,15 +17,15 @@
 :if ([/ip pool get $zeazPool ranges] != "192.168.10.0/24") do={ :error "MIGRATION REFUSED: zeaz-pool ranges changed from inspected legacy state" }
 :if ([/ip pool get $zeazPool next-pool] != "wifi-pool") do={ :error "MIGRATION REFUSED: zeaz-pool no longer points to wifi-pool" }
 
-:if ([:len [/ip pool used find where pool="wifi-pool"]] > 0) do={ :error "MIGRATION REFUSED: wifi-pool has active usage" }
-:if ([:len [/ip pool used find where pool="zeaz-pool"]] > 0) do={ :error "MIGRATION REFUSED: zeaz-pool has active usage" }
-:if ([:len [/ip dhcp-server find where address-pool="wifi-pool"]] > 0) do={ :error "MIGRATION REFUSED: DHCP server still references wifi-pool" }
-:if ([:len [/ip dhcp-server find where address-pool="zeaz-pool"]] > 0) do={ :error "MIGRATION REFUSED: DHCP server still references zeaz-pool" }
-:if ([:len [/ip dhcp-server find where interface="ether1"]] > 0) do={ :error "MIGRATION REFUSED: DHCP server still exists on WAN ether1" }
-:if ([:len [/ip arp find where address~"^192\\.168\\.0\\."]] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.0.x ARP state is still present" }
-:if ([:len [/ip arp find where address~"^192\\.168\\.10\\."]] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.10.x ARP state is still present" }
-:if ([:len [/ip dhcp-server lease find where address~"^192\\.168\\.0\\."]] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.0.x DHCP lease is still present" }
-:if ([:len [/ip dhcp-server lease find where address~"^192\\.168\\.10\\."]] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.10.x DHCP lease is still present" }
+:if ([/ip pool used print count-only where pool="wifi-pool"] > 0) do={ :error "MIGRATION REFUSED: wifi-pool has active usage" }
+:if ([/ip pool used print count-only where pool="zeaz-pool"] > 0) do={ :error "MIGRATION REFUSED: zeaz-pool has active usage" }
+:if ([/ip dhcp-server print count-only where address-pool="wifi-pool"] > 0) do={ :error "MIGRATION REFUSED: DHCP server still references wifi-pool" }
+:if ([/ip dhcp-server print count-only where address-pool="zeaz-pool"] > 0) do={ :error "MIGRATION REFUSED: DHCP server still references zeaz-pool" }
+:if ([/ip dhcp-server print count-only where interface="ether1"] > 0) do={ :error "MIGRATION REFUSED: DHCP server still exists on WAN ether1" }
+:if ([/ip arp print count-only where address~"^192\\.168\\.0\\."] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.0.x ARP state is still present" }
+:if ([/ip arp print count-only where address~"^192\\.168\\.10\\."] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.10.x ARP state is still present" }
+:if ([/ip dhcp-server lease print count-only where address~"^192\\.168\\.0\\."] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.0.x DHCP lease is still present" }
+:if ([/ip dhcp-server lease print count-only where address~"^192\\.168\\.10\\."] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.10.x DHCP lease is still present" }
 
 :if ([/ip address print count-only where address="192.168.0.0/24" and interface="DBC-Bridge-Local"] != 1) do={ :error "MIGRATION REFUSED: expected one legacy 192.168.0.0/24 bridge address" }
 :local legacyAddress [/ip address find where address="192.168.0.0/24" and interface="DBC-Bridge-Local"]
@@ -66,9 +66,9 @@
 :if ($lanNextAfter != "" && $lanNextAfter != "none") do={ :error "VERIFY FAIL: lan-pool fallback remains" }
 :if ($wifiNextAfter != "" && $wifiNextAfter != "none") do={ :error "VERIFY FAIL: wifi-pool fallback remains" }
 :if ($zeazNextAfter != "" && $zeazNextAfter != "none") do={ :error "VERIFY FAIL: zeaz-pool fallback remains" }
-:if ([:len [/ip address find where address="192.168.0.0/24" and interface="DBC-Bridge-Local"]] > 0) do={ :error "VERIFY FAIL: legacy bridge address remains" }
-:if ([:len [/ip dhcp-server network find where address="192.168.0.0/24"]] > 0) do={ :error "VERIFY FAIL: legacy 192.168.0.0/24 DHCP network remains" }
-:if ([:len [/ip dhcp-server network find where address="192.168.10.0/24"]] > 0) do={ :error "VERIFY FAIL: legacy 192.168.10.0/24 DHCP network remains" }
+:if ([/ip address print count-only where address="192.168.0.0/24" and interface="DBC-Bridge-Local"] > 0) do={ :error "VERIFY FAIL: legacy bridge address remains" }
+:if ([/ip dhcp-server network print count-only where address="192.168.0.0/24"] > 0) do={ :error "VERIFY FAIL: legacy 192.168.0.0/24 DHCP network remains" }
+:if ([/ip dhcp-server network print count-only where address="192.168.10.0/24"] > 0) do={ :error "VERIFY FAIL: legacy 192.168.10.0/24 DHCP network remains" }
 :if ([/ip dhcp-server network print count-only where address="192.168.1.0/24"] != 1) do={ :error "VERIFY FAIL: production LAN DHCP network is not unique after migration" }
 :local verifyNet1 [/ip dhcp-server network find where address="192.168.1.0/24"]
 :if ([/ip dhcp-server network get $verifyNet1 dns-server] != "192.168.1.1") do={ :error "VERIFY FAIL: production LAN DNS was not migrated to RouterOS" }

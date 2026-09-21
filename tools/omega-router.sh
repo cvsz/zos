@@ -51,7 +51,7 @@ backup() {
   stamp="$(date +%Y%m%d-%H%M%S)"
   name="omega-policedbc-$stamp"
   mkdir -p "$ROOT/backups"
-  secret_dir="${OMEGA_BACKUP_SECRET_DIR:-$HOME/.local/share/zos-mikrotik/secrets}"
+  secret_dir="${OMEGA_BACKUP_SECRET_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/zos-mikrotik/secrets}"
   mkdir -p "$secret_dir"
   chmod 700 "$secret_dir"
   umask 077
@@ -132,7 +132,7 @@ apply_safe() {
 
   output_file="$(mktemp)"
   cleanup_output() { rm -f "$output_file"; }
-  trap cleanup_output RETURN
+  trap cleanup_output EXIT
 
   cleanup_remote_files() {
     for file in "$@"; do

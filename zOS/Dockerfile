@@ -1,4 +1,4 @@
-FROM alpine:3.22
+FROM alpine:3.22.6
 
 RUN apk add --no-cache bash openssh-client curl jq iproute2 iputils bind-tools git make ca-certificates
 

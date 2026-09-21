@@ -40,7 +40,7 @@ add name=ha-a.zeaz.dev address=192.168.1.119 ttl=1d comment="OMEGA ha-a"
 add name=ha-b.zeaz.dev address=192.168.1.120 ttl=1d comment="OMEGA ha-b"
 add name=wifi.zeaz.dev address=192.168.1.238 ttl=1d comment="OMEGA ZeaZ WiFi repeater"
 
-/ip pool add name=lan-pool ranges=192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121-192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254
+/ip pool add name=lan-pool ranges=192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254
 /ip dhcp-server network add address=192.168.1.0/24 gateway=192.168.1.1 dns-server=192.168.1.1 comment="OMEGA LAN"
 /ip dhcp-server add name=lan-dhcp interface=DBC-Bridge-Local address-pool=lan-pool lease-time=12h authoritative=yes disabled=no
 /ip dhcp-server lease

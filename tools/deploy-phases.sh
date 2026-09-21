@@ -19,6 +19,17 @@ STATE_DIR="${OMEGA_STATE_DIR:-$ROOT/state/deploy}"
 DRY_RUN_MARKER="$STATE_DIR/dry-run.success"
 TOPOLOGY_FILE="${OMEGA_ENV_FILE:-$ROOT/config/topology.env}"
 [[ -f "$TOPOLOGY_FILE" ]] || TOPOLOGY_FILE="$ROOT/config/topology.env.example"
+
+_ENV_ALLOW_LIVE_APPLY="${OMEGA_ALLOW_LIVE_APPLY:-}"
+_ENV_REQUIRE_DRY_RUN="${OMEGA_REQUIRE_DRY_RUN:-}"
+_ENV_REQUIRE_SAFE_MODE="${OMEGA_REQUIRE_SAFE_MODE:-}"
+_ENV_DRY_RUN_MAX_AGE="${OMEGA_DRY_RUN_MAX_AGE_SECONDS:-}"
+# shellcheck disable=SC1090
+source "$TOPOLOGY_FILE"
+[[ -n "$_ENV_ALLOW_LIVE_APPLY" ]] && OMEGA_ALLOW_LIVE_APPLY="$_ENV_ALLOW_LIVE_APPLY"
+[[ -n "$_ENV_REQUIRE_DRY_RUN" ]] && OMEGA_REQUIRE_DRY_RUN="$_ENV_REQUIRE_DRY_RUN"
+[[ -n "$_ENV_REQUIRE_SAFE_MODE" ]] && OMEGA_REQUIRE_SAFE_MODE="$_ENV_REQUIRE_SAFE_MODE"
+[[ -n "$_ENV_DRY_RUN_MAX_AGE" ]] && OMEGA_DRY_RUN_MAX_AGE_SECONDS="$_ENV_DRY_RUN_MAX_AGE"
 DRY_RUN_MAX_AGE_SECONDS="${OMEGA_DRY_RUN_MAX_AGE_SECONDS:-3600}"
 
 phase_manifest() {
@@ -122,9 +133,18 @@ case "$mode" in
     "$CTL" backup
     echo 'Starting one interactive RouterOS Safe Mode transaction for all production imports and in-transaction verification.'
     "$CTL" apply-safe "${PHASES[@]/#/$ROOT/}"
-    "$CTL" verify
-    "$CTL" fetch-export omega-policedbc-evidence
-    "$CTL" fetch-export omega-policedbc-after
+    if ! "$CTL" verify; then
+      echo 'POST-COMMIT VERIFY FAILED: the Safe Mode transaction was already verified and committed. Do not rerun apply blindly; investigate current live state and use the retained backup if rollback is required.' >&2
+      exit 5
+    fi
+    if ! "$CTL" fetch-export omega-policedbc-evidence; then
+      echo 'POST-COMMIT EVIDENCE FETCH FAILED: configuration is already committed. Do not rerun apply merely to regenerate evidence.' >&2
+      exit 6
+    fi
+    if ! "$CTL" fetch-export omega-policedbc-after; then
+      echo 'POST-COMMIT EVIDENCE FETCH FAILED: configuration is already committed. Do not rerun apply merely to regenerate evidence.' >&2
+      exit 6
+    fi
     ;;
   verify)
     "$CTL" verify

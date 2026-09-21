@@ -50,6 +50,8 @@ done
 # Verified production topology.
 grep -q 'DBC-Bridge-Local' 00-PRECHECK.rsc || err 'precheck missing verified LAN bridge'
 grep -q 'interface="ether1" and status="bound"' 00-PRECHECK.rsc || err 'precheck missing DHCP WAN bound check'
+grep -Fq 'enabled DHCP server exists on WAN ether1' 00-PRECHECK.rsc || err 'precheck must reject WAN-side DHCP servers'
+grep -Fq 'legacy 192.168.0.0/24 address remains on DBC-Bridge-Local' 00-PRECHECK.rsc || err 'precheck must reject legacy LAN subnet drift'
 grep -q '192.168.1.1/24' 00-PRECHECK.rsc || err 'precheck missing LAN gateway'
 grep -q '192.168.200.1' 00-PRECHECK.rsc || err 'precheck missing upstream gateway'
 grep -q '^ROUTER_WAN_MODE=dhcp$' config/topology.env.example || err 'topology must declare DHCP WAN'

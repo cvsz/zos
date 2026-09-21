@@ -13,7 +13,7 @@ This roadmap describes intended work. It must not be read as evidence that an it
 
 - formalize release/version policy before 1.0;
 - add stronger documentation/static link validation where useful;
-- add dependency/update policy for Actions and container base images;
+- maintain Dependabot, immutable Action pins, container digest pins, and vulnerability-scan policy;
 - expand sanitized failure-mode evidence for CORE/GitHub incidents;
 - verify and document actual PROD host addressing before enabling cross-environment automation.
 

@@ -117,6 +117,8 @@ grep -Fq 'Hijacking Safe Mode from someone' tools/omega-router.sh || err 'Safe M
 grep -Fq "printf '\\004'" tools/omega-router.sh || err 'Safe Mode failure path must explicitly send Ctrl-D rollback'
 grep -Fq 'OMEGA_PHASE_PASS' tools/omega-router.sh || err 'Safe Mode apply must wait for per-phase success sentinels'
 grep -Fq 'wait_for_marker' tools/omega-router.sh || err 'Safe Mode apply must wait for RouterOS responses before sending subsequent phases'
+grep -Fq 'floating-undo=yes' tools/omega-router.sh || err 'Safe Mode apply must enforce a floating-undo history budget'
+grep -Fq 'OMEGA_SAFE_BUDGET_FAIL' tools/omega-router.sh || err 'Safe Mode apply must fail before RouterOS history capacity is exhausted'
 grep -Fq 'fingerprint)' tools/omega-router.sh || err 'router helper must expose deterministic target fingerprinting'
 grep -Fq 'OMEGA_DRY_RUN_MAX_AGE_SECONDS' tools/deploy-phases.sh || err 'dry-run evidence must have a freshness limit'
 grep -Fq 'target_fingerprint' tools/deploy-phases.sh || err 'dry-run evidence must be bound to the target router/runtime'

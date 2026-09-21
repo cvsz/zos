@@ -124,6 +124,11 @@ grep -Fq 'OMEGA_DRY_RUN_MAX_AGE_SECONDS' tools/deploy-phases.sh || err 'dry-run 
 grep -Fq 'target_fingerprint' tools/deploy-phases.sh || err 'dry-run evidence must be bound to the target router/runtime'
 grep -Fq 'topology_sha256' tools/deploy-phases.sh || err 'dry-run evidence must be bound to topology configuration'
 grep -Fq 'git_commit=' tools/deploy-phases.sh || err 'dry-run evidence must be bound to the reviewed git commit'
+grep -Fq 'router_config_sha256=' tools/omega-router.sh || err 'dry-run evidence must be bound to the live RouterOS static configuration'
+grep -Fq 'DRY_RUN_MAX_AGE_SECONDS <= 3600' tools/deploy-phases.sh || err 'dry-run freshness window must be capped at one hour'
+grep -Fq '("OMEGA_PHASE_" . "PASS ' tools/omega-router.sh || err 'phase PASS marker must be assembled remotely to avoid terminal-echo spoofing'
+grep -Fq '("OMEGA_PHASE_" . "FAIL ' tools/omega-router.sh || err 'phase FAIL marker must be assembled remotely to avoid terminal-echo spoofing'
+grep -Fq '("OMEGA_APPLY_" . "PASS")' tools/omega-router.sh || err 'apply PASS marker must be assembled remotely to avoid terminal-echo spoofing'
 if grep -Fq "if [[ \"\${OMEGA_REQUIRE_SAFE_MODE:-1}\" == \"1\" ]]" tools/deploy-phases.sh; then err 'production apply must not retain a Safe Mode bypass branch'; fi
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'

@@ -84,6 +84,8 @@ grep -q 'ha-b\.zeaz\.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-B DNS record missing'
 # Ownership boundaries: active phases must preserve unrelated live state.
 grep -Fq 'refusing implicit WAN/LAN topology takeover' 20-NETWORK-NORMALIZE.rsc || err 'network phase must fail closed on ether1 bridge conflicts'
 grep -Fq 'already belongs to another bridge; refusing takeover' 20-NETWORK-NORMALIZE.rsc || err 'network phase must fail closed on bridge ownership conflicts'
+grep -Fq 'list="WAN" and interface="DBC-Bridge-Local" and dynamic=no' 20-NETWORK-NORMALIZE.rsc || err 'network phase must ignore dynamic WAN-list detection entries'
+grep -Fq 'list="LAN" and interface="ether1" and dynamic=no' 20-NETWORK-NORMALIZE.rsc || err 'network phase must ignore dynamic LAN-list detection entries'
 grep -Fq 'Do not delete unrelated DHCP servers' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must document preservation of unowned DHCP servers'
 grep -Fq 'global upstream DNS' 30-DHCP-DNS-NTP.rsc || err 'DNS phase must preserve upstream resolver state'
 grep -Eq '/ip firewall (filter|nat) remove \[find where .*comment~|/ip firewall (filter|nat) remove \[find where .*comment=' 50-FIREWALL-NAT.rsc || err 'firewall cleanup must be restricted to zOS-owned comments'

@@ -17,6 +17,8 @@
 }
 
 # In the verified production topology ether1 is already isolated as WAN.
+# RouterOS may expose dynamic interface-list membership from Detect Internet;
+# only explicit/static list membership is an ownership conflict.
 # Active normalization never removes an unowned bridge membership implicitly.
 :if ([:len [/interface bridge port find where interface="ether1"]] > 0) do={
     :error "ether1 is attached to a bridge; refusing implicit WAN/LAN topology takeover"
@@ -46,10 +48,10 @@
 :if ([:len [find where name="VPN"]] = 0) do={ add name=VPN comment="OMEGA-MANAGED" }
 
 /interface list member
-:if ([:len [find where list="WAN" and interface="DBC-Bridge-Local"]] > 0) do={
+:if ([:len [find where list="WAN" and interface="DBC-Bridge-Local" and dynamic=no]] > 0) do={
     :error "DBC-Bridge-Local is unexpectedly in WAN list; refusing implicit removal"
 }
-:if ([:len [find where list="LAN" and interface="ether1"]] > 0) do={
+:if ([:len [find where list="LAN" and interface="ether1" and dynamic=no]] > 0) do={
     :error "ether1 is unexpectedly in LAN list; refusing implicit removal"
 }
 :if ([:len [find where list="WAN" and interface="ether1"]] = 0) do={ add list=WAN interface=ether1 comment="OMEGA-MANAGED" }

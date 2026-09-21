@@ -4,6 +4,12 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### RouterOS dynamic interface-list ownership guard
+- Ignore RouterOS-generated dynamic interface-list memberships when checking explicit WAN/LAN ownership in `20-NETWORK-NORMALIZE.rsc`.
+- Preserve fail-closed behavior for static conflicting memberships while avoiding false failures from Detect Internet state such as dynamic `LAN ether1`.
+- Add repository validation and runbook coverage for this distinction.
+
+
 ### EnGenius DHCP reservation reconciliation
 - Moved `EWS1200D-10T` to reserved `192.168.1.50` and the eight EWS310AP units to `192.168.1.51-.58` using their verified MAC mappings.
 - Updated the LAN pool so `.50-.58`, `.100`, `.119`, `.120`, `.122`, `.123`, and `.238` are excluded from dynamic allocation while the former `.101-.108` and `.239` WiFi addresses return to the dynamic pool.

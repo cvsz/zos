@@ -10,7 +10,7 @@ This file is a compact infrastructure summary. `ENVIRONMENTS.md` is the canonica
 - Upstream gateway observed from DHCP: `192.168.200.1`.
 - LAN: `DBC-Bridge-Local = 192.168.1.1/24`.
 - LAN ports: `ether2`-`ether10` and `sfp-sfpplus1`.
-- Dynamic DHCP ranges: `192.168.1.59-99`, `101-118`, `121`, `124-237`, and `239-254`.
+- Dynamic DHCP ranges: `192.168.1.59-99`, `101-118`, `121-121`, `124-237`, and `239-254`.
 - Fixed infrastructure `.50-.58`, `.100`, `.119`, `.120`, `.122`, `.123`, and `.238` is excluded from dynamic allocation.
 - WireGuard target: `wg-remote = 10.8.0.1/24`, UDP 51820.
 - CORE WireGuard peer target: `10.8.0.2/32`.

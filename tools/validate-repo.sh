@@ -112,7 +112,7 @@ grep -q 'OMEGA_REQUIRE_SAFE_MODE' tools/deploy-phases.sh || err 'deploy script d
 grep -Fq '[Safe Mode taken]' tools/omega-router.sh || err 'RouterOS apply helper does not require Safe Mode confirmation'
 grep -Fq 'OMEGA_APPLY_PASS' tools/omega-router.sh || err 'RouterOS apply helper does not require phase success confirmation'
 grep -Fq 'flock -n' tools/omega-router.sh || err 'Safe Mode apply must reject concurrent controller-side runs'
-grep -Fq 'tee -a "$output_file"' tools/omega-router.sh || err 'Safe Mode apply output must stream in real time'
+grep -Fq "tee -a \"\$output_file\"" tools/omega-router.sh || err 'Safe Mode apply output must stream in real time'
 grep -Fq 'Hijacking Safe Mode from someone' tools/omega-router.sh || err 'Safe Mode apply must surface stale/external Safe Mode ownership'
 grep -Fq "printf '\\004'" tools/omega-router.sh || err 'Safe Mode failure path must explicitly send Ctrl-D rollback'
 grep -Fq 'OMEGA_PHASE_PASS' tools/omega-router.sh || err 'Safe Mode apply must wait for per-phase success sentinels'
@@ -124,7 +124,7 @@ grep -Fq 'OMEGA_DRY_RUN_MAX_AGE_SECONDS' tools/deploy-phases.sh || err 'dry-run 
 grep -Fq 'target_fingerprint' tools/deploy-phases.sh || err 'dry-run evidence must be bound to the target router/runtime'
 grep -Fq 'topology_sha256' tools/deploy-phases.sh || err 'dry-run evidence must be bound to topology configuration'
 grep -Fq 'git_commit=' tools/deploy-phases.sh || err 'dry-run evidence must be bound to the reviewed git commit'
-if grep -Fq 'if [[ "${OMEGA_REQUIRE_SAFE_MODE:-1}" == "1" ]]' tools/deploy-phases.sh; then err 'production apply must not retain a Safe Mode bypass branch'; fi
+if grep -Fq "if [[ \"\${OMEGA_REQUIRE_SAFE_MODE:-1}\" == \"1\" ]]" tools/deploy-phases.sh; then err 'production apply must not retain a Safe Mode bypass branch'; fi
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'
 grep -Fq '/system package update set channel=' tools/routeros-auto-update.sh && err 'update-check must not persistently set RouterOS update channel'

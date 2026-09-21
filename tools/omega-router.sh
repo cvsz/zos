@@ -56,10 +56,12 @@ fingerprint() {
 }
 
 backup() {
-  local stamp name password password_file
+  local stamp name password password_file password_dir
   stamp="$(date +%Y%m%d-%H%M%S)"
   name="omega-policedbc-$stamp"
-  mkdir -p "$ROOT/backups"
+  password_dir="${OMEGA_BACKUP_PASSWORD_DIR:-$ROOT/state/backup-secrets}"
+  mkdir -p "$ROOT/backups" "$password_dir"
+  chmod 700 "$password_dir"
   umask 077
   password="${OMEGA_BACKUP_PASSWORD:-}"
   if [[ -z "$password" ]]; then
@@ -70,7 +72,7 @@ backup() {
     echo 'OMEGA_BACKUP_PASSWORD must contain only letters, digits, _ or - and be at least 24 characters' >&2
     exit 2
   }
-  password_file="$ROOT/backups/$name.backup.password"
+  password_file="$password_dir/$name.backup.password"
   printf '%s\n' "$password" > "$password_file"
   chmod 600 "$password_file"
 
@@ -174,6 +176,18 @@ apply_safe() {
     echo 'At least one production phase failed inside Safe Mode' >&2
     exit 4
   }
+
+  local evidence_dir stamp
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  evidence_dir="$ROOT/backups/evidence/$stamp"
+  mkdir -p "$evidence_dir"
+  for remote in omega-policedbc-evidence.rsc omega-policedbc-after.rsc; do
+    if scp "${SSH_OPTS[@]}" "$TARGET:$remote" "$evidence_dir/$remote" >/dev/null 2>&1; then
+      ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
+    else
+      echo "WARN: post-apply evidence file was not available: $remote" >&2
+    fi
+  done
 }
 
 verify() {

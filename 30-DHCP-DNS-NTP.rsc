@@ -6,12 +6,14 @@
 # Existing unowned DHCP servers and upstream DNS resolver state are preserved.
 
 :local legacyRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
-:local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121-192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
+:local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
 :if ([:len [/ip pool find where name="lan-pool"]] = 0) do={
     /ip pool add name=lan-pool ranges=$desiredRanges comment="OMEGA-MANAGED"
 } else={
     :local poolId [/ip pool find where name="lan-pool"]
-    :local currentRanges [/ip pool get $poolId ranges]
+    :local currentRanges [:tostr [/ip pool get $poolId ranges]]
+    :local currentNextPool [:tostr [/ip pool get $poolId next-pool]]
+    :put ("OMEGA: lan-pool ranges=" . $currentRanges . " next-pool=" . $currentNextPool)
     :if ($currentRanges = $legacyRanges) do={
         /ip pool set $poolId ranges=$desiredRanges
         :log warning "OMEGA: migrated lan-pool to reserve EnGenius .50-.58 and all fixed infrastructure"

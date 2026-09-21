@@ -4,6 +4,13 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### DHCP pool normalization and phase diagnostics
+- Normalize RouterOS `/ip pool get ... ranges` values with `:tostr` before comparing them with the verified legacy/desired contracts.
+- Represent the single dynamic address `192.168.1.121` canonically instead of as a degenerate start/end range.
+- Capture RouterOS import errors with `:onerror` per phase and include the failing phase filename plus the native RouterOS error text.
+- Include `/ip pool print detail` and `/ip pool used print detail` in read-only audits so fallback pools such as `next-pool` can be reviewed before mutation.
+
+
 ### RouterOS Safe Mode persistent receive buffer
 - Preserve one SSH receive buffer across prompt, Safe Mode confirmation, SAFE-prompt, and transaction-result stages.
 - Prevent loss of `<SAFE>` when RouterOS emits it in the same SSH read as `Taking Safe Mode session... Success!`.

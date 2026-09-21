@@ -122,8 +122,8 @@ case "$mode" in
     echo 'Starting one interactive RouterOS Safe Mode transaction for all production imports and in-transaction verification.'
     "$CTL" apply-safe "${PHASES[@]/#/$ROOT/}"
     "$CTL" verify
-    "$CTL" fetch-export omega-policedbc-evidence || true
-    "$CTL" fetch-export omega-policedbc-after || true
+    "$CTL" fetch-export omega-policedbc-evidence
+    "$CTL" fetch-export omega-policedbc-after
     ;;
   verify)
     "$CTL" verify

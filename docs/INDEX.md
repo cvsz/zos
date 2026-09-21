@@ -29,6 +29,7 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 | `docs/DISASTER-RECOVERY.md` | rollback and service restoration |
 | `docs/PRODUCTION-READINESS.md` | repository vs runtime acceptance |
 | `docs/PRODUCTION-MIGRATION.md` | legacy-to-current topology guidance |
+| `docs/LEGACY-DHCP-MIGRATION.md` | runbook สำหรับ quarantine legacy DHCP pools/networks แบบ one-shot และ fail-closed |
 | `docs/ROUTEROS-LAB-TEST-PLAN.md` | isolated RouterOS safety test matrix and exit criteria |
 | `docs/SELF_HOSTED_RUNNER.md` | Windows runner lifecycle and security |
 | `runner/README.md` | Windows runner VM local environment reference |

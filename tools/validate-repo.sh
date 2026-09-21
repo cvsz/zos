@@ -20,7 +20,7 @@ required=(
   cloudflare/README.md cloudflare/config.env.example
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
-  runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py
+  runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py tools/test-routeros-safe-session.py
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh .dockerignore
@@ -29,7 +29,8 @@ required=(
   .github/workflows/security-scan.yml .github/dependabot.yml
 )
 for f in "${required[@]}"; do [[ -f "$f" ]] || err "missing required file: $f"; done
-python3 -m py_compile tools/routeros-safe-session.py || err 'RouterOS Safe Mode session driver failed Python syntax validation'
+python3 -m py_compile tools/routeros-safe-session.py tools/test-routeros-safe-session.py || err 'RouterOS Safe Mode session driver failed Python syntax validation'
+python3 tools/test-routeros-safe-session.py || err 'RouterOS Safe Mode session regression tests failed'
 
 grep -q '^CF_CONNECTOR_HOST=core\.zeaz\.dev$' cloudflare/config.env.example || err 'Cloudflare connector template is missing the approved CORE host'
 grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documentation is missing'
@@ -108,7 +109,9 @@ grep -Fq 'flock -n' tools/omega-router.sh || err 'Safe Mode apply must reject co
 grep -Fq 'tools/routeros-safe-session.py' tools/omega-router.sh || err 'Safe Mode apply must use the dedicated session driver'
 grep -Fq 'b"] >"' tools/routeros-safe-session.py || err 'Safe Mode driver must wait for the RouterOS CLI prompt before Ctrl-X'
 grep -Fq 'b"Taking Safe Mode session... Success!"' tools/routeros-safe-session.py || err 'Safe Mode driver must accept RouterOS 7.25 Safe Mode confirmation'
-grep -Fq 'b"<SAFE>"' tools/routeros-safe-session.py || err 'Safe Mode driver must observe the SAFE prompt before transaction input'
+grep -Fq 'receive_buffer = bytearray()' tools/routeros-safe-session.py || err 'Safe Mode driver must preserve one receive buffer across handshake stages'
+grep -Fq 'read_until(proc, evidence, receive_buffer, (b"<SAFE>",)' tools/routeros-safe-session.py || err 'Safe Mode driver must reuse the receive buffer for the SAFE prompt'
+grep -Fq 'test_preloaded_safe_prompt_survives_previous_match' tools/test-routeros-safe-session.py || err 'Safe Mode same-chunk regression test missing'
 grep -Fq 'b"Hijacking Safe Mode from someone"' tools/routeros-safe-session.py || err 'Safe Mode driver must fail closed on hijack prompts'
 grep -Fq 'def rollback(' tools/routeros-safe-session.py || err 'Safe Mode driver rollback routine missing'
 grep -Fq 'b"\x04"' tools/routeros-safe-session.py || err 'Safe Mode driver must request Ctrl-D rollback on failure'

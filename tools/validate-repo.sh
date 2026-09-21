@@ -134,8 +134,6 @@ if grep -RInE "uses:[[:space:]]*[^@[:space:]]+@(v[0-9]+|main|master|latest)([[:s
   err 'GitHub Actions must be pinned to immutable commit SHAs'
 fi
 grep -Eq '^FROM .+@sha256:[0-9a-f]{64}
-
-# Fail-closed environment defaults.
 grep -q '^PROD_ALLOW_PASSWORD=no$' prod/.env.example || err 'PROD SSH password authentication must fail closed in template'
 grep -q '^PROD_ALLOW_DEPLOY=0$' prod/.env.example || err 'PROD live deploy must fail closed in template'
 grep -q '^OMEGA_ALLOW_LIVE_APPLY=0$' .env.example || err 'root .env.example must fail closed for live apply'
@@ -175,8 +173,7 @@ else
 fi
 
 (( fail == 0 )) || exit 1
-echo 'Repository safety validation PASS'
- zOS/Dockerfile || err 'controller base image must be pinned by digest'
+echo 'Repository safety validation PASS' zOS/Dockerfile || err 'controller base image must be pinned by digest'
 grep -Fq 'aquasecurity/trivy-action@' .github/workflows/security-scan.yml || err 'Trivy security scan workflow missing'
 grep -Fq 'severity: HIGH,CRITICAL' .github/workflows/security-scan.yml || err 'Trivy HIGH/CRITICAL gate missing'
 grep -Fq 'package-ecosystem: github-actions' .github/dependabot.yml || err 'Dependabot GitHub Actions updates missing'

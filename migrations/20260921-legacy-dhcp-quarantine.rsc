@@ -3,12 +3,12 @@
 
 :local legacyLanRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
 
+:if ([/ip pool print count-only where name="lan-pool"] != 1) do={ :error "MIGRATION REFUSED: lan-pool is not unique" }
+:if ([/ip pool print count-only where name="wifi-pool"] != 1) do={ :error "MIGRATION REFUSED: wifi-pool is not unique" }
+:if ([/ip pool print count-only where name="zeaz-pool"] != 1) do={ :error "MIGRATION REFUSED: zeaz-pool is not unique" }
 :local lanPool [/ip pool find where name="lan-pool"]
 :local wifiPool [/ip pool find where name="wifi-pool"]
 :local zeazPool [/ip pool find where name="zeaz-pool"]
-:if ([:len $lanPool] != 1) do={ :error "MIGRATION REFUSED: lan-pool is not unique" }
-:if ([:len $wifiPool] != 1) do={ :error "MIGRATION REFUSED: wifi-pool is not unique" }
-:if ([:len $zeazPool] != 1) do={ :error "MIGRATION REFUSED: zeaz-pool is not unique" }
 
 :if ([/ip pool get $lanPool ranges] != $legacyLanRanges) do={ :error "MIGRATION REFUSED: lan-pool ranges changed from inspected legacy state" }
 :if ([/ip pool get $lanPool next-pool] != "zeaz-pool") do={ :error "MIGRATION REFUSED: lan-pool no longer points to zeaz-pool" }
@@ -27,15 +27,15 @@
 :if ([:len [/ip dhcp-server lease find where address~"^192\\.168\\.0\\."]] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.0.x DHCP lease is still present" }
 :if ([:len [/ip dhcp-server lease find where address~"^192\\.168\\.10\\."]] > 0) do={ :error "MIGRATION REFUSED: legacy 192.168.10.x DHCP lease is still present" }
 
+:if ([/ip address print count-only where address="192.168.0.0/24" and interface="DBC-Bridge-Local"] != 1) do={ :error "MIGRATION REFUSED: expected one legacy 192.168.0.0/24 bridge address" }
 :local legacyAddress [/ip address find where address="192.168.0.0/24" and interface="DBC-Bridge-Local"]
-:if ([:len $legacyAddress] != 1) do={ :error "MIGRATION REFUSED: expected one legacy 192.168.0.0/24 bridge address" }
 
+:if ([/ip dhcp-server network print count-only where address="192.168.0.0/24"] != 1) do={ :error "MIGRATION REFUSED: expected one 192.168.0.0/24 DHCP network" }
+:if ([/ip dhcp-server network print count-only where address="192.168.1.0/24"] != 1) do={ :error "MIGRATION REFUSED: expected one 192.168.1.0/24 DHCP network" }
+:if ([/ip dhcp-server network print count-only where address="192.168.10.0/24"] != 1) do={ :error "MIGRATION REFUSED: expected one 192.168.10.0/24 DHCP network" }
 :local net0 [/ip dhcp-server network find where address="192.168.0.0/24"]
 :local net1 [/ip dhcp-server network find where address="192.168.1.0/24"]
 :local net10 [/ip dhcp-server network find where address="192.168.10.0/24"]
-:if ([:len $net0] != 1) do={ :error "MIGRATION REFUSED: expected one 192.168.0.0/24 DHCP network" }
-:if ([:len $net1] != 1) do={ :error "MIGRATION REFUSED: expected one 192.168.1.0/24 DHCP network" }
-:if ([:len $net10] != 1) do={ :error "MIGRATION REFUSED: expected one 192.168.10.0/24 DHCP network" }
 
 :if ([/ip dhcp-server network get $net0 gateway] != "192.168.1.1") do={ :error "MIGRATION REFUSED: legacy 192.168.0.0/24 gateway changed" }
 :if ([/ip dhcp-server network get $net10 gateway] != "192.168.1.1") do={ :error "MIGRATION REFUSED: legacy 192.168.10.0/24 gateway changed" }
@@ -69,8 +69,8 @@
 :if ([:len [/ip address find where address="192.168.0.0/24" and interface="DBC-Bridge-Local"]] > 0) do={ :error "VERIFY FAIL: legacy bridge address remains" }
 :if ([:len [/ip dhcp-server network find where address="192.168.0.0/24"]] > 0) do={ :error "VERIFY FAIL: legacy 192.168.0.0/24 DHCP network remains" }
 :if ([:len [/ip dhcp-server network find where address="192.168.10.0/24"]] > 0) do={ :error "VERIFY FAIL: legacy 192.168.10.0/24 DHCP network remains" }
+:if ([/ip dhcp-server network print count-only where address="192.168.1.0/24"] != 1) do={ :error "VERIFY FAIL: production LAN DHCP network is not unique after migration" }
 :local verifyNet1 [/ip dhcp-server network find where address="192.168.1.0/24"]
-:if ([:len $verifyNet1] != 1) do={ :error "VERIFY FAIL: production LAN DHCP network is not unique after migration" }
 :if ([/ip dhcp-server network get $verifyNet1 dns-server] != "192.168.1.1") do={ :error "VERIFY FAIL: production LAN DNS was not migrated to RouterOS" }
 
 :put "LEGACY DHCP QUARANTINE PASS"

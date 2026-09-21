@@ -132,6 +132,7 @@ grep -Fq 'lan-pool range migration failed:' 30-DHCP-DNS-NTP.rsc || err 'DHCP pha
 grep -Fq 'lan-pool has unexpected next-pool=' 99-VERIFY-HEALTH.rsc || err 'health phase must assert no fallback DHCP pool'
 
 # Guarded one-shot legacy DHCP quarantine migration.
+grep -Fq 'migrate-legacy-dhcp:' Makefile || err 'Makefile must expose the guarded legacy DHCP migration target'
 grep -Fq 'OMEGA_ALLOW_LEGACY_DHCP_MIGRATION' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must require a dedicated explicit opt-in'
 grep -Fq 'OMEGA_ALLOW_LIVE_APPLY' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must also require live-apply opt-in'
 grep -Fq '"$CTL" backup' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must create a backup before mutation'

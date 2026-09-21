@@ -4,6 +4,13 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Retained vulnerability and package evidence
+- Generate Trivy filesystem and controller-image vulnerability SARIF before enforcement gates.
+- Generate a package-aware CycloneDX SBOM from the built controller image.
+- Retain Trivy SARIF and CycloneDX evidence as GitHub Actions artifacts for 30 days.
+- Validate the evidence/output contract in repository safety checks.
+
+
 ### Supply-chain and recovery follow-up
 - Pin GitHub Actions to immutable commit SHAs and pin the controller Alpine base image by digest.
 - Add Dependabot coverage for GitHub Actions and Docker updates.

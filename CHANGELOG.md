@@ -4,6 +4,12 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### RouterOS Safe Mode persistent receive buffer
+- Preserve one SSH receive buffer across prompt, Safe Mode confirmation, SAFE-prompt, and transaction-result stages.
+- Prevent loss of `<SAFE>` when RouterOS emits it in the same SSH read as `Taking Safe Mode session... Success!`.
+- Add a regression test for same-chunk Safe Mode confirmation and SAFE prompt delivery.
+
+
 ### RouterOS Safe Mode prompt synchronization
 - Wait for the interactive RouterOS CLI prompt before sending Ctrl-X.
 - Require both `[Safe Mode taken]` and the `<SAFE>` prompt before sending the production transaction.

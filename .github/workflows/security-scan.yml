@@ -12,11 +12,48 @@ permissions:
 jobs:
   trivy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+
+      - name: Prepare security evidence directory
+        run: mkdir -p artifacts/security
+
+      - name: Build controller image for vulnerability scan
+        run: docker build --pull -t zos-security-scan:local -f zOS/Dockerfile .
+
+      - name: Generate filesystem vulnerability SARIF
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: artifacts/security/trivy-filesystem.sarif
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Generate controller image vulnerability SARIF
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: zos-security-scan:local
+          format: sarif
+          output: artifacts/security/trivy-controller-image.sarif
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Generate controller image CycloneDX SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: zos-security-scan:local
+          format: cyclonedx
+          output: artifacts/security/controller-image.cdx.json
+          exit-code: '0'
 
       - name: Scan repository filesystem
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -28,9 +65,6 @@ jobs:
           ignore-unfixed: true
           severity: HIGH,CRITICAL
 
-      - name: Build controller image for vulnerability scan
-        run: docker build --pull -t zos-security-scan:local -f zOS/Dockerfile .
-
       - name: Scan controller image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -40,3 +74,12 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+
+      - name: Upload security evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: trivy-security-evidence-${{ github.sha }}
+          path: artifacts/security/
+          if-no-files-found: error
+          retention-days: 30

@@ -9,13 +9,13 @@
 1. update `CHANGELOG.md` and any behavior/operations docs;
 2. set `zOS/VERSION` intentionally;
 3. run `make validate`, `make docs`, `make evidence`, and the applicable security/build checks;
-4. merge through the protected `main` branch;
+4. merge to `main` only after the configured repository ruleset/checks pass; verify the account-side protection is actually enabled;
 5. tag using `zos-v<version>`;
 6. verify the GitHub build artifact and GHCR image;
 7. record release notes and known limitations;
 8. keep live RouterOS deployment separate from the release build.
 
-The complete local gate is `make all`. To build and publish the signed release tag and GitHub release for the version in `zOS/VERSION`, use `RELEASE_CONFIRM=1 make release` from the reviewed `main` commit. This requires authenticated `git push` and `gh`; it does not perform RouterOS or Cloudflare changes.
+The complete local gate is `make all`. `make release-check` additionally requires a project-wide `LICENSE`, a clean working tree, the `main` branch, and exact synchronization with `origin/main`. Release packaging uses `git archive HEAD`, so ignored local topology files, backups, passwords, state, and other untracked controller data cannot enter the release tarball. To publish, use `RELEASE_CONFIRM=1 make release` from the reviewed `main` commit. This requires authenticated `git push` and `gh`; it does not perform RouterOS or Cloudflare changes.
 
 ## Artifacts
 

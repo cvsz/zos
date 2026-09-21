@@ -20,7 +20,7 @@ required=(
   cloudflare/README.md cloudflare/config.env.example
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
-  runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh
+  runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh .dockerignore
@@ -29,6 +29,7 @@ required=(
   .github/workflows/security-scan.yml .github/dependabot.yml
 )
 for f in "${required[@]}"; do [[ -f "$f" ]] || err "missing required file: $f"; done
+python3 -m py_compile tools/routeros-safe-session.py || err 'RouterOS Safe Mode session driver failed Python syntax validation'
 
 grep -q '^CF_CONNECTOR_HOST=core\.zeaz\.dev$' cloudflare/config.env.example || err 'Cloudflare connector template is missing the approved CORE host'
 grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documentation is missing'
@@ -100,14 +101,17 @@ grep -q '^OMEGA_REQUIRE_DRY_RUN=1$' config/topology.env.example || err 'dry-run 
 grep -q '^OMEGA_REQUIRE_SAFE_MODE=1$' config/topology.env.example || err 'Safe Mode gate must be enabled by default'
 grep -q 'OMEGA_REQUIRE_DRY_RUN' tools/deploy-phases.sh || err 'deploy script does not enforce dry-run gate'
 grep -q 'OMEGA_REQUIRE_SAFE_MODE' tools/deploy-phases.sh || err 'deploy script does not enforce Safe Mode gate'
-grep -Fq '[Safe Mode taken]' tools/omega-router.sh || err 'RouterOS apply helper does not require Safe Mode confirmation'
+grep -Fq 'Safe Mode taken' tools/omega-router.sh || err 'RouterOS apply helper must accept documented Safe Mode confirmation'
+grep -Fq 'Taking Safe Mode session' tools/omega-router.sh || err 'RouterOS apply helper must accept RouterOS 7.25 Safe Mode confirmation'
 grep -Fq 'OMEGA_APPLY_PASS' tools/omega-router.sh || err 'RouterOS apply helper does not require phase success confirmation'
 grep -Fq 'flock -n' tools/omega-router.sh || err 'Safe Mode apply must reject concurrent controller-side runs'
-grep -Fq "printf '%s' \"\$ch\" >> \"\$output_file\"" tools/omega-router.sh || err 'Safe Mode apply output must stream in real time'
-grep -Fq 'Hijacking Safe Mode from someone' tools/omega-router.sh || err 'Safe Mode apply must surface stale/external Safe Mode ownership'
-grep -Fq "stream_until_token \"\$read_fd\" \"\$ssh_pid\" '] >'" tools/omega-router.sh || err 'Safe Mode apply must wait for the RouterOS CLI prompt before Ctrl-X'
-grep -Fq "stream_until_token \"\$read_fd\" \"\$ssh_pid\" '[Safe Mode taken]'" tools/omega-router.sh || err 'Safe Mode apply must confirm RouterOS Safe Mode before sending transaction'
-grep -Fq "stream_until_token \"\$read_fd\" \"\$ssh_pid\" '<SAFE>'" tools/omega-router.sh || err 'Safe Mode apply must observe the SAFE prompt before transaction input'
+grep -Fq 'tools/routeros-safe-session.py' tools/omega-router.sh || err 'Safe Mode apply must use the dedicated session driver'
+grep -Fq 'b"] >"' tools/routeros-safe-session.py || err 'Safe Mode driver must wait for the RouterOS CLI prompt before Ctrl-X'
+grep -Fq 'b"Taking Safe Mode session... Success!"' tools/routeros-safe-session.py || err 'Safe Mode driver must accept RouterOS 7.25 Safe Mode confirmation'
+grep -Fq 'b"<SAFE>"' tools/routeros-safe-session.py || err 'Safe Mode driver must observe the SAFE prompt before transaction input'
+grep -Fq 'b"Hijacking Safe Mode from someone"' tools/routeros-safe-session.py || err 'Safe Mode driver must fail closed on hijack prompts'
+grep -Fq 'def rollback(' tools/routeros-safe-session.py || err 'Safe Mode driver rollback routine missing'
+grep -Fq 'b"\x04"' tools/routeros-safe-session.py || err 'Safe Mode driver must request Ctrl-D rollback on failure'
 grep -Fq ':put ("OMEGA_APPLY_" . "PASS")' tools/omega-router.sh || err 'Safe Mode success sentinel must not appear literally in echoed RouterOS input'
 grep -Fq "cmd=':do {'" tools/omega-router.sh || err 'Safe Mode apply must wrap all imports in one RouterOS transaction'
 grep -Fq '/quit' tools/omega-router.sh || err 'Safe Mode apply success path must explicitly release the session'

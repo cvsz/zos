@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/zeaz-mikrotik
 Environment=OMEGA_ENV_FILE=/etc/zeaz-mikrotik/topology.env
-Environment=OMEGA_BACKUP_SECRET_DIR=/var/lib/zeaz-mikrotik/secrets
+Environment=OMEGA_BACKUP_PASSWORD_DIR=/var/lib/zeaz-mikrotik/secrets
 ExecStart=/opt/zeaz-mikrotik/tools/routeros-auto-update.sh check-and-update
 Nice=10
 IOSchedulingClass=best-effort

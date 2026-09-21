@@ -209,6 +209,15 @@ apply_safe() {
       cleanup_remote_files "$@"
       exit 4
     fi
+
+    printf ':local omegaHistory [/system/history/print detail as-value where floating-undo=yes]; :if ([:len $omegaHistory] > 80) do={ :put "OMEGA_SAFE_BUDGET_FAIL" } else={ :put "OMEGA_SAFE_BUDGET_PASS" }\n' >&"$write_fd"
+    wait_for_marker 'OMEGA_SAFE_BUDGET_PASS' 'OMEGA_SAFE_BUDGET_FAIL' 30
+    if [[ "$wait_result" != pass ]]; then
+      echo "Safe Mode floating-undo budget exceeded or could not be verified after $remote. Rolling back with Ctrl-D." >&2
+      rollback_session
+      cleanup_remote_files "$@"
+      exit 4
+    fi
   done
 
   printf ':put "OMEGA_APPLY_PASS"\n' >&"$write_fd"

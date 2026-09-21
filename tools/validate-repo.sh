@@ -23,7 +23,7 @@ required=(
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
-  zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh
+  zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh .dockerignore
   .github/workflows/validate.yml .github/workflows/zos-build.yml
 )
 for f in "${required[@]}"; do [[ -f "$f" ]] || err "missing required file: $f"; done
@@ -103,6 +103,25 @@ grep -Fq 'OMEGA_APPLY_PASS' tools/omega-router.sh || err 'RouterOS apply helper 
 grep -Fq 'flock -n' tools/omega-router.sh || err 'Safe Mode apply must reject concurrent controller-side runs'
 grep -Fq "| tee \"\$output_file\"" tools/omega-router.sh || err 'Safe Mode apply output must stream in real time'
 grep -Fq 'Hijacking Safe Mode from someone' tools/omega-router.sh || err 'Safe Mode apply must surface stale/external Safe Mode ownership'
+grep -Fq "cmd=':do {'" tools/omega-router.sh || err 'Safe Mode apply must wrap all imports in one RouterOS transaction'
+grep -Fq '/quit' tools/omega-router.sh || err 'Safe Mode apply success path must explicitly release the session'
+grep -Fq 'fingerprint) fingerprint' tools/omega-router.sh || err 'dry-run binding requires router fingerprint support'
+grep -Fq 'target_manifest' tools/deploy-phases.sh || err 'dry-run marker must bind to the live target fingerprint'
+grep -Fq 'OMEGA_DRY_RUN_MAX_AGE_SECONDS' tools/deploy-phases.sh || err 'dry-run marker must enforce freshness'
+grep -Fq 'production Safe Mode enforcement cannot be disabled' tools/deploy-phases.sh || err 'production apply must not expose a Safe Mode bypass'
+grep -Fq 'OMEGA VERIFY PASS' 99-VERIFY-HEALTH.rsc || err 'health phase must provide an assertion success sentinel'
+grep -Fq 'lan-pool ranges do not match production contract' 99-VERIFY-HEALTH.rsc || err 'health phase must assert the DHCP pool contract'
+grep -Fq '88:DC:96:55:58:E7=192.168.1.52=RITRUECHAI-AP02' 99-VERIFY-HEALTH.rsc || err 'health phase must assert EnGenius reservations'
+grep -Fq 'unowned rule found in ZEAZ-PoliceDBC-INPUT' 50-FIREWALL-NAT.rsc || err 'firewall phase must reject foreign rules in owned chains'
+grep -Fq 'CORE WireGuard peer public key differs from verified contract' 40-WIREGUARD-SERVICES.rsc || err 'WireGuard phase must validate peer identity'
+grep -Fq 'git archive --format=tar HEAD' Makefile || err 'release packaging must include tracked files only'
+grep -Fq 'Release blocked: project-wide LICENSE is not declared.' Makefile || err 'release must fail closed until a project license is declared'
+grep -Fq 'config/topology.env' .dockerignore || err 'Docker build context must exclude populated topology'
+grep -Fq 'backups' .dockerignore || err 'Docker build context must exclude backups'
+grep -Fq 'state' .dockerignore || err 'Docker build context must exclude runtime state'
+grep -Fq 'expected advertised version' tools/routeros-auto-update.sh || err 'auto-update must verify the advertised target version'
+grep -Fq 'OMEGA_BACKUP_PASSWORD_DIR' tools/omega-router.sh || err 'backup password storage must be separable from backup artifacts'
+if grep -Fq '"$CORE" check || true' zOS/bin/zos; then err 'zOS doctor must propagate CORE structural failures'; fi
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'
 grep -Fq '/system package update set channel=' tools/routeros-auto-update.sh && err 'update-check must not persistently set RouterOS update channel'

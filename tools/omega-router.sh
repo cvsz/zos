@@ -204,7 +204,7 @@ apply_safe() {
 
   for file in "$@"; do
     remote="$(basename "$file")"
-    printf ':do { /import file-name=%s verbose=yes; :put "OMEGA_PHASE_PASS %s" } on-error={ :put "OMEGA_PHASE_FAIL %s" }\n' "$remote" "$remote" "$remote" >&"$write_fd"
+    printf ':do { /import file-name=%s verbose=yes; :put ("OMEGA_PHASE_" . "PASS %s") } on-error={ :put ("OMEGA_PHASE_" . "FAIL %s") }\n' "$remote" "$remote" "$remote" >&"$write_fd"
     wait_for_marker "OMEGA_PHASE_PASS $remote" "OMEGA_PHASE_FAIL $remote" 240
     if [[ "$wait_result" != pass ]]; then
       echo "Safe Mode phase failed before commit: $remote (result: $wait_result). Rolling back with Ctrl-D." >&2
@@ -213,7 +213,7 @@ apply_safe() {
       exit 4
     fi
 
-    printf '%s\n' ':local omegaHistory [/system/history/print detail as-value where floating-undo=yes]; :if ([:len $omegaHistory] > 80) do={ :put "OMEGA_SAFE_BUDGET_FAIL" } else={ :put "OMEGA_SAFE_BUDGET_PASS" }' >&"$write_fd"
+    printf '%s\n' ':local omegaHistory [/system/history/print detail as-value where floating-undo=yes]; :if ([:len $omegaHistory] > 80) do={ :put ("OMEGA_SAFE_BUDGET_" . "FAIL") } else={ :put ("OMEGA_SAFE_BUDGET_" . "PASS") }' >&"$write_fd"
     wait_for_marker 'OMEGA_SAFE_BUDGET_PASS' 'OMEGA_SAFE_BUDGET_FAIL' 30
     if [[ "$wait_result" != pass ]]; then
       echo "Safe Mode floating-undo budget exceeded or could not be verified after $remote. Rolling back with Ctrl-D." >&2
@@ -223,7 +223,7 @@ apply_safe() {
     fi
   done
 
-  printf ':put "OMEGA_APPLY_PASS"\n' >&"$write_fd"
+  printf '%s\n' ':put ("OMEGA_APPLY_" . "PASS")' >&"$write_fd"
   wait_for_marker 'OMEGA_APPLY_PASS' 'OMEGA_PHASE_FAIL' 30
   if [[ "$wait_result" != pass ]]; then
     echo "Safe Mode success sentinel was not confirmed (result: $wait_result). Rolling back with Ctrl-D." >&2
@@ -253,8 +253,11 @@ verify() {
 }
 
 fingerprint() {
+  local config_sha
   printf 'router_host=%s\n' "$ROUTER_HOST"
   ssh_mt ':put ("router_identity=" . [/system identity get name]); :put ("router_board=" . [/system resource get board-name]); :put ("router_arch=" . [/system resource get architecture-name]); :put ("router_version=" . [/system resource get version])'
+  config_sha="$(ssh_mt '/export terse' | tr -d '\r' | sha256sum | awk '{print $1}')"
+  printf 'router_config_sha256=%s\n' "$config_sha"
 }
 
 fetch_export() {

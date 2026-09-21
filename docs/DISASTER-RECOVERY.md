@@ -17,7 +17,7 @@ Use Safe Mode for risky changes where supported. An abnormal loss of the Safe Mo
 
 ## Backups
 
-Text exports are reviewable recovery inputs. Binary `.backup` files are sensitive and device/configuration-specific; keep them protected and out of Git.
+Text exports are reviewable recovery inputs. Binary `.backup` files are sensitive and device/configuration-specific; keep them protected and out of Git. Generated backup passwords are stored separately under `state/backup-secrets/` by default (override with `OMEGA_BACKUP_PASSWORD_DIR`); protect both locations and never publish either.
 
 ## CORE route recovery
 

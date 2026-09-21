@@ -65,11 +65,9 @@ def write_spdx(files: list[Path], out: Path) -> None:
 
 
 def should_scan(rel: str) -> bool:
-    if rel.startswith(("evidence/corpus/", "evidence/ci/")):
-        return False
-    if rel.endswith((".md", ".example")):
-        return False
-    return True
+    # Synthetic corpora intentionally contain security-shaped fixtures.
+    # All other tracked UTF-8 files, including Markdown and examples, are scanned.
+    return not rel.startswith(("evidence/corpus/", "evidence/ci/"))
 
 
 def scan(files: list[Path]) -> list[dict]:

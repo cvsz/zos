@@ -67,7 +67,9 @@ perform_update() {
   [[ "$ALLOW_REBOOT" == "1" ]] || die 'auto-update requires OMEGA_ALLOW_ROUTER_REBOOT=1 because RouterOS install reboots the router'
   "$ROUTER_CTL" backup
   "$ROUTER_CTL" verify
-  local before after install_rc
+  local before after expected install_rc
+  expected="$(jq -r '.latest_version // empty' "$STATE_DIR/latest.json")"
+  [[ -n "$expected" ]] || die 'latest RouterOS version is unknown; refusing unattended install'
   before="$(router_cmd ':put [/system resource get version]' | tr -d '\r')"
   log "installing RouterOS update from $before; router will reboot"
   set +e
@@ -81,6 +83,7 @@ perform_update() {
     if "$ROUTER_CTL" status >/dev/null 2>&1; then
       after="$(router_cmd ':put [/system resource get version]' | tr -d '\r')"
       [[ "$after" != "$before" ]] || die "RouterOS update did not change the running version (still $after)"
+      [[ "$after" == "$expected" ]] || die "RouterOS returned with version $after, expected advertised version $expected"
       collect_update_state >/dev/null
       notify_server || true
       "$ROUTER_CTL" verify

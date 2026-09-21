@@ -28,6 +28,12 @@ if [[ ! -f "$ROOT/config/topology.env" ]]; then
   chmod 600 "$ROOT/config/topology.env"
 fi
 
+if grep -q '^ROUTER_SSH_KEY=$' "$ROOT/config/topology.env"; then
+  sed -i "s|^ROUTER_SSH_KEY=$|ROUTER_SSH_KEY=$KEY|" "$ROOT/config/topology.env"
+elif ! grep -q '^ROUTER_SSH_KEY=' "$ROOT/config/topology.env"; then
+  printf 'ROUTER_SSH_KEY=%s\n' "$KEY" >> "$ROOT/config/topology.env"
+fi
+
 if ! grep -q 'HOME/.local/bin' "$HOME/.profile" 2>/dev/null; then
   cat >> "$HOME/.profile" <<'EOF'
 

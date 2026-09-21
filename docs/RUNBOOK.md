@@ -98,7 +98,7 @@ Active production phases:
 99-VERIFY-HEALTH.rsc
 ~~~
 
-The controller uses unique temporary RouterOS filenames for dry-runs and removes them after the import attempt. A successful dry-run records a SHA-256 manifest of the exact active phase files. Any later phase change makes that manifest stale and blocks live apply until dry-run succeeds again.
+The controller uses unique temporary RouterOS filenames for dry-runs and removes them after the import attempt. A successful dry-run records the exact phase hashes together with the Git commit, topology-config hash, router host/user, router identity, board, architecture, and RouterOS version. The marker expires after one hour by default (`OMEGA_DRY_RUN_MAX_AGE_SECONDS=3600`). Any phase, target, configuration, version, commit, or freshness mismatch blocks live apply until dry-run succeeds again.
 
 Historical clean-slate/PPPoE/alternate-WireGuard paths are not part of the active production phase sequence.
 
@@ -119,7 +119,7 @@ export OMEGA_ALLOW_LIVE_APPLY=1
 make apply
 ~~~
 
-When Safe Mode is required, zOS uses one interactive RouterOS CLI session for all phase imports, requires RouterOS to confirm `[Safe Mode taken]`, and requires the explicit `OMEGA_APPLY_PASS` sentinel before treating the operation as successful. A failed phase or missing Safe Mode confirmation fails closed.
+Production apply always requires Safe Mode and a current dry-run. zOS sends the active phase stack as one RouterOS transaction: the success path reaches `OMEGA_APPLY_PASS` and `/quit` only after every import, including the assertive health phase, succeeds. An import/assertion failure never reaches `/quit`; the interactive session closes without committing the Safe Mode transaction. Missing Safe Mode confirmation, target drift, stale dry-run evidence, or a concurrent apply fails closed.
 
 Do not bypass this workflow with ad-hoc individual imports for ordinary production changes. Do not release Safe Mode until independent verification succeeds.
 

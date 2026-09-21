@@ -88,7 +88,7 @@ grep -Fq 'list="WAN" and interface="DBC-Bridge-Local" and dynamic=no' 20-NETWORK
 grep -Fq 'list="LAN" and interface="ether1" and dynamic=no' 20-NETWORK-NORMALIZE.rsc || err 'network phase must ignore dynamic LAN-list detection entries'
 grep -Fq 'Do not delete unrelated DHCP servers' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must document preservation of unowned DHCP servers'
 grep -Fq 'global upstream DNS' 30-DHCP-DNS-NTP.rsc || err 'DNS phase must preserve upstream resolver state'
-grep -Eq '/ip firewall (filter|nat) remove \[find where .*comment~|/ip firewall (filter|nat) remove \[find where .*comment=' 50-FIREWALL-NAT.rsc || err 'firewall cleanup must be restricted to zOS-owned comments'
+grep -Eq 'remove \[find where chain="ZEAZ-PoliceDBC-(INPUT|FORWARD|SRCNAT)" and comment~"\^PoliceDBC:"\]' 50-FIREWALL-NAT.rsc || err 'firewall cleanup must be restricted to zOS-owned comments'
 if grep -Eq 'core\.zeaz\.internal.*192\.168\.1\.128|192\.168\.1\.128.*core\.zeaz\.internal' 30-DHCP-DNS-NTP.rsc; then err 'DHCP/DNS phase hard-codes obsolete CORE address'; fi
 
 # Backup/apply/update safety.
@@ -121,7 +121,7 @@ grep -Fq 'backups' .dockerignore || err 'Docker build context must exclude backu
 grep -Fq 'state' .dockerignore || err 'Docker build context must exclude runtime state'
 grep -Fq 'expected advertised version' tools/routeros-auto-update.sh || err 'auto-update must verify the advertised target version'
 grep -Fq 'OMEGA_BACKUP_PASSWORD_DIR' tools/omega-router.sh || err 'backup password storage must be separable from backup artifacts'
-if grep -Fq '"$CORE" check || true' zOS/bin/zos; then err 'zOS doctor must propagate CORE structural failures'; fi
+if grep -Fq "\"\$CORE\" check || true" zOS/bin/zos; then err 'zOS doctor must propagate CORE structural failures'; fi
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'
 grep -Fq '/system package update set channel=' tools/routeros-auto-update.sh && err 'update-check must not persistently set RouterOS update channel'

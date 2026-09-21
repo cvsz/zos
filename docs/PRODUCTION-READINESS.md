@@ -44,9 +44,11 @@ CORE is runtime-ready when:
 - current state audited;
 - recovery-capable management path proven;
 - export and backup captured;
-- intended phases dry-run cleanly;
-- Safe Mode/recovery available for risky changes;
-- explicit live-apply gate enabled only for the approved window.
+- intended phases dry-run cleanly against the exact target runtime;
+- dry-run evidence is fresh and bound to git/topology/router identity and RouterOS version;
+- Safe Mode/recovery is available and the apply helper performs per-phase PASS/FAIL handshakes;
+- assertive health verification passes before Safe Mode commit;
+- explicit live-apply gate is enabled only for the approved window.
 
 ## Production accepted
 
@@ -67,3 +69,10 @@ Record:
 ## Explicit non-evidence
 
 The following are not sufficient on their own: HTTP 200 from a RouterOS execute endpoint, successful repository build, an SSH TCP port being reachable, a pre-reboot route table, or a backup file existing without a restore/rollback exercise.
+
+
+## Release/security acceptance
+
+A public release is blocked until a project-wide LICENSE is selected. Release artifacts must be generated from tracked git content only, from a clean synchronized `main`. Container/repository vulnerability scanning is performed separately from the lightweight repository secret-evidence generator; both are evidence inputs, not substitutes for live security testing.
+
+GitHub administrative controls such as branch/ruleset protection remain account-side state. Verify them in GitHub before calling governance complete; repository documentation cannot enforce a disabled account-side ruleset by itself.

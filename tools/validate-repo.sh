@@ -184,7 +184,7 @@ grep -Fq 'package-ecosystem: docker' .github/dependabot.yml || err 'Dependabot D
 grep -Fq 'GOLDEN REINSTALL REFUSED: lan-pool already exists' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must refuse configured DHCP targets'
 grep -Fq '/interface wireguard add name=wg-remote' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must converge WireGuard baseline'
 grep -Fq 'ZEAZ-PoliceDBC-INPUT' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must converge managed firewall baseline'
-grep -Fq 'OMEGA_BACKUP_SECRET_DIR=/var/lib/zeaz-mikrotik/secrets' systemd/omega-routeros-update.service || err 'update service must isolate backup secret storage'
+grep -Fq 'OMEGA_BACKUP_PASSWORD_DIR=/var/lib/zeaz-mikrotik/secrets' systemd/omega-routeros-update.service || err 'update service must isolate backup secret storage'
 grep -Fq 'SECRET_DIR=/var/lib/zeaz-mikrotik/secrets' tools/install-update-monitor.sh || err 'update monitor installer must provision isolated secret storage'
 
 # Fail-closed environment defaults.

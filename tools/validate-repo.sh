@@ -130,7 +130,7 @@ grep -Fq '/system package update set channel=' tools/routeros-auto-update.sh && 
 grep -Fq 'RouterOS update did not change the running version' tools/routeros-auto-update.sh || err 'auto-update lacks post-reboot version-change verification'
 
 # Supply-chain and clean-rebuild safety.
-if grep -RInE 'uses:[[:space:]]*[^@[:space:]]+@(v[0-9]+|main|master|latest)([[:space:]]|$)' .github/workflows; then
+if grep -RInE "uses:[[:space:]]*[^@[:space:]]+@(v[0-9]+|main|master|latest)([[:space:]]|$)" .github/workflows; then
   err 'GitHub Actions must be pinned to immutable commit SHAs'
 fi
 grep -Eq '^FROM .+@sha256:[0-9a-f]{64}

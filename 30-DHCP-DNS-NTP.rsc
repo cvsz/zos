@@ -12,8 +12,21 @@
 } else={
     :local poolId [/ip pool find where name="lan-pool"]
     :local currentRanges [/ip pool get $poolId ranges]
+    :local currentNextPool [/ip pool get $poolId next-pool]
+
+    # Production lan-pool must not fall through into an unverified secondary pool.
+    # A legacy next-pool can reintroduce addresses intentionally excluded from the
+    # primary range and is therefore treated as live-state drift, not auto-removed.
+    :if ($currentNextPool != "" && $currentNextPool != "none") do={
+        :error ("lan-pool has unverified next-pool=" . $currentNextPool . "; inspect /ip pool print detail and clear/approve the fallback before migration")
+    }
+
     :if ($currentRanges = $legacyRanges) do={
-        /ip pool set $poolId ranges=$desiredRanges
+        :onerror poolError in={
+            /ip pool set $poolId ranges=$desiredRanges
+        } do={
+            :error ("lan-pool range migration failed: " . $poolError)
+        }
         :log warning "OMEGA: migrated lan-pool to reserve EnGenius .50-.58 and all fixed infrastructure"
     } else={
         :if ($currentRanges != $desiredRanges) do={

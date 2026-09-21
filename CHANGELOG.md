@@ -4,6 +4,12 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### DHCP fallback-pool drift detection
+- Fail closed when production `lan-pool` points at an unverified `next-pool`.
+- Surface the actual RouterOS error if the legacy-to-production pool-range migration fails.
+- Verify that the converged production pool has no fallback pool configured.
+
+
 ### RouterOS Safe Mode persistent receive buffer
 - Preserve one SSH receive buffer across prompt, Safe Mode confirmation, SAFE-prompt, and transaction-result stages.
 - Prevent loss of `<SAFE>` when RouterOS emits it in the same SSH read as `Taking Safe Mode session... Success!`.

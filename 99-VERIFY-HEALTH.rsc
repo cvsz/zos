@@ -17,6 +17,8 @@
 :local poolId [/ip pool find where name="lan-pool"]
 :if ([:len $poolId] != 1) do={ :error "VERIFY FAIL: lan-pool is not unique" }
 :if ([/ip pool get $poolId ranges] != $desiredRanges) do={ :error "VERIFY FAIL: lan-pool ranges do not match production contract" }
+:local nextPool [/ip pool get $poolId next-pool]
+:if ($nextPool != "" && $nextPool != "none") do={ :error ("VERIFY FAIL: lan-pool has unexpected next-pool=" . $nextPool) }
 
 :local fixedHosts {
     "48:4D:7E:D4:3A:C6=192.168.1.100=PoliceDBC-SEA";

@@ -4,6 +4,12 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### RouterOS object-count guard correction
+- เปลี่ยน one-shot legacy DHCP migration จากการใช้ `:len` กับ internal IDs ที่ได้จาก `find` มาใช้ `print count-only where ...` สำหรับ uniqueness/existence checks ตาม RouterOS CLI semantics
+- ใช้ `find` เฉพาะหลัง count ผ่านแล้ว เพื่อรับ object ID สำหรับ `get/set/remove`
+- ป้องกัน false refusal ที่พบจริงบน RouterOS 7.25beta4 เมื่อ `lan-pool` มีเพียงหนึ่งรายการแต่ guard `:len $lanPool != 1` ยัง fail
+
+
 ### Legacy DHCP quarantine migration
 - เพิ่ม one-shot guarded migration สำหรับตัด fallback chain `lan-pool -> zeaz-pool -> wifi-pool -> lan-pool` โดยไม่ลบ legacy pool objects
 - refuse migration ถ้ามี legacy pool usage, DHCP reference, ARP/lease, WAN DHCP server หรือ topology ไม่ตรงกับ inspected state

@@ -16,11 +16,12 @@ required=(
   docs/INDEX.md docs/ARCHITECTURE.md docs/INSTALLATION.md docs/RUNBOOK.md
   docs/NETWORK-RECOVERY.md docs/SSH-HARDENING.md docs/DISASTER-RECOVERY.md
   docs/PRODUCTION-READINESS.md docs/GITHUB-OPERATIONS.md docs/GITHUB-SETTINGS.md
-  docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md
+  docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md docs/LEGACY-DHCP-MIGRATION.md docs/WIFI-SINGLE-NETWORK.md
   cloudflare/README.md cloudflare/config.env.example
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
-  .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
+  .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example config/wifi-single-network.env.example
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py tools/test-routeros-safe-session.py
+  tools/migrate-legacy-dhcp.sh migrations/20260921-legacy-dhcp-quarantine.rsc
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh .dockerignore
@@ -37,7 +38,7 @@ grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documen
 if grep -Eiq '(^|_)(TOKEN|SECRET|PASSWORD|PRIVATE_KEY)=.+' cloudflare/config.env.example; then err 'Cloudflare template contains a populated credential'; fi
 grep -Fq 'cloudflare/config.env' .gitignore || err 'populated Cloudflare config is not ignored'
 
-executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh zOS/bin/zos zOS/install.sh)
+executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/migrate-legacy-dhcp.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh zOS/bin/zos zOS/install.sh)
 for f in "${executables[@]}"; do [[ ! -f "$f" || -x "$f" ]] || err "operational entry point is not executable: $f"; done
 
 active=(00-PRECHECK.rsc 10-BACKUP-SNAPSHOT.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc 40-WIREGUARD-SERVICES.rsc 50-FIREWALL-NAT.rsc 60-OBSERVABILITY.rsc 90-EXPORT-EVIDENCE.rsc 99-VERIFY-HEALTH.rsc)
@@ -50,6 +51,8 @@ done
 # Verified production topology.
 grep -q 'DBC-Bridge-Local' 00-PRECHECK.rsc || err 'precheck missing verified LAN bridge'
 grep -q 'interface="ether1" and status="bound"' 00-PRECHECK.rsc || err 'precheck missing DHCP WAN bound check'
+grep -Fq 'enabled DHCP server exists on WAN ether1' 00-PRECHECK.rsc || err 'precheck must reject WAN-side DHCP servers'
+grep -Fq 'legacy 192.168.0.0/24 address remains on DBC-Bridge-Local' 00-PRECHECK.rsc || err 'precheck must reject legacy LAN subnet drift'
 grep -q '192.168.1.1/24' 00-PRECHECK.rsc || err 'precheck missing LAN gateway'
 grep -q '192.168.200.1' 00-PRECHECK.rsc || err 'precheck missing upstream gateway'
 grep -q '^ROUTER_WAN_MODE=dhcp$' config/topology.env.example || err 'topology must declare DHCP WAN'
@@ -60,6 +63,25 @@ grep -q '^DEV_LAN_MAC=00:0C:29:75:A6:D4$' config/topology.env.example || err 'CO
 grep -q '^PROD_LAN_IP=192\.168\.1\.122$' config/topology.env.example || err 'PROD target address missing'
 grep -q '^PROD_LAN_MAC=00:0C:29:B5:F4:09$' config/topology.env.example || err 'PROD MAC missing'
 grep -q '^PROD_LAN_STATUS=VERIFIED_REPOSITORY_BASELINE$' config/topology.env.example || err 'PROD baseline marker missing'
+
+# Single-network Wi-Fi contract.
+grep -q '^WIFI_MODE=single-network$' config/wifi-single-network.env.example || err 'Wi-Fi profile must remain single-network'
+grep -q '^WIFI_NETWORK=192\.168\.1\.0/24$' config/wifi-single-network.env.example || err 'Wi-Fi profile must use the production LAN subnet'
+grep -q '^WIFI_GATEWAY=192\.168\.1\.1$' config/wifi-single-network.env.example || err 'Wi-Fi profile gateway must be RouterOS LAN'
+grep -q '^WIFI_CONTROLLER_IP=192\.168\.1\.50$' config/wifi-single-network.env.example || err 'Wi-Fi controller address contract missing'
+grep -q '^WIFI_AP_IPS=192\.168\.1\.51,192\.168\.1\.52,192\.168\.1\.53,192\.168\.1\.54,192\.168\.1\.55,192\.168\.1\.56,192\.168\.1\.57,192\.168\.1\.58$' config/wifi-single-network.env.example || err 'Wi-Fi AP address contract missing'
+grep -q '^WIFI_VLAN_MODE=untagged$' config/wifi-single-network.env.example || err 'single-network Wi-Fi must remain untagged'
+grep -q '^WIFI_GUEST_NETWORK=0$' config/wifi-single-network.env.example || err 'single-network Wi-Fi must not enable a separate guest network'
+grep -q '^WIFI_CAPTIVE_PORTAL=0$' config/wifi-single-network.env.example || err 'single-network Wi-Fi must not enable captive portal'
+grep -q '^WIFI_CLIENT_ISOLATION=0$' config/wifi-single-network.env.example || err 'shared LAN Wi-Fi must not isolate clients'
+grep -q '^WIFI_BAND_STEERING=1$' config/wifi-single-network.env.example || err 'Wi-Fi profile must enable band steering'
+grep -q '^WIFI_FAST_ROAMING=1$' config/wifi-single-network.env.example || err 'Wi-Fi profile must enable fast roaming'
+grep -q '^WIFI_PSK_SET_IN_CONTROLLER_ONLY=1$' config/wifi-single-network.env.example || err 'Wi-Fi PSK must remain controller-only'
+if grep -Eiq '(^|_)(PSK|PASSWORD|SECRET|PRIVATE_KEY)=.+' config/wifi-single-network.env.example; then err 'Wi-Fi profile must not contain credentials'; fi
+grep -Fq 'wifi-status:' Makefile || err 'Makefile must expose read-only Wi-Fi status'
+grep -Fq 'wifi-single-network-status) wifi_single_network_status' tools/omega-router.sh || err 'RouterOS helper must expose Wi-Fi status'
+grep -Fq 'https://www.engeniustech.com/apac/products/network-switches/ews1200d-10t/' docs/WIFI-SINGLE-NETWORK.md || err 'Wi-Fi runbook must cite EWS1200D vendor documentation'
+grep -Fq 'https://www.engeniustech.com/apac/products/wireless/indoor-access-points/ews310ap/' docs/WIFI-SINGLE-NETWORK.md || err 'Wi-Fi runbook must cite EWS310AP vendor documentation'
 
 # Fixed host inventory and local DNS.
 grep -q '48:4D:7E:D4:3A:C6=192.168.1.100=PoliceDBC-SEA' 30-DHCP-DNS-NTP.rsc || err 'PoliceDBC reservation missing'
@@ -116,11 +138,11 @@ grep -Fq 'b"Hijacking Safe Mode from someone"' tools/routeros-safe-session.py ||
 grep -Fq 'def rollback(' tools/routeros-safe-session.py || err 'Safe Mode driver rollback routine missing'
 grep -Fq 'b"\x04"' tools/routeros-safe-session.py || err 'Safe Mode driver must request Ctrl-D rollback on failure'
 grep -Fq ':put ("OMEGA_APPLY_" . "PASS")' tools/omega-router.sh || err 'Safe Mode success sentinel must not appear literally in echoed RouterOS input'
-grep -Fq "cmd=':onerror txError in={'" tools/omega-router.sh || err 'Safe Mode apply must wrap all imports in one error-aware RouterOS transaction'
-grep -Fq ':onerror phaseError in={ /import file-name=' tools/omega-router.sh || err 'Safe Mode apply must capture per-phase RouterOS import errors'
-grep -Fq 'OMEGA phase failed $remote:' tools/omega-router.sh || err 'Safe Mode apply must identify the failed phase'
-grep -Fq ':local currentRanges [:tostr [/ip pool get $poolId ranges]]' 30-DHCP-DNS-NTP.rsc || err 'DHCP pool comparison must normalize RouterOS ranges to string'
-grep -Fq ':local currentRanges [:tostr [/ip pool get $poolId ranges]]' 99-VERIFY-HEALTH.rsc || err 'DHCP pool verification must normalize RouterOS ranges to string'
+grep -Fq "cmd=':do {'" tools/omega-router.sh || err 'Safe Mode apply must wrap all imports in one RouterOS transaction'
+grep -Fq 'OMEGA_PHASE_\" . \"FILE:' tools/omega-router.sh || err 'Safe Mode apply must identify the failing phase file'
+grep -Fq ":local currentRanges [:tostr [/ip pool get \$poolId ranges]]" 30-DHCP-DNS-NTP.rsc || err 'DHCP pool comparison must normalize RouterOS ranges to string'
+grep -Fq 'legacyRangesStr' 30-DHCP-DNS-NTP.rsc || err 'DHCP pool contract must use semicolon-joined ranges for :tostr comparison'
+grep -Fq ":local currentRanges [:tostr [/ip pool get \$poolId ranges]]" 99-VERIFY-HEALTH.rsc || err 'DHCP pool verification must normalize RouterOS ranges to string'
 grep -Fq '/quit' tools/omega-router.sh || err 'Safe Mode apply success path must explicitly release the session'
 grep -Fq 'fingerprint) fingerprint' tools/omega-router.sh || err 'dry-run binding requires router fingerprint support'
 grep -Fq 'target_manifest' tools/deploy-phases.sh || err 'dry-run marker must bind to the live target fingerprint'
@@ -128,6 +150,37 @@ grep -Fq 'OMEGA_DRY_RUN_MAX_AGE_SECONDS' tools/deploy-phases.sh || err 'dry-run 
 grep -Fq 'production Safe Mode enforcement cannot be disabled' tools/deploy-phases.sh || err 'production apply must not expose a Safe Mode bypass'
 grep -Fq 'OMEGA VERIFY PASS' 99-VERIFY-HEALTH.rsc || err 'health phase must provide an assertion success sentinel'
 grep -Fq 'lan-pool ranges do not match production contract' 99-VERIFY-HEALTH.rsc || err 'health phase must assert the DHCP pool contract'
+grep -Fq 'lan-pool has unverified next-pool=' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must fail closed on unverified next-pool drift'
+grep -Fq 'lan-pool range migration failed:' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must surface RouterOS pool migration errors'
+grep -Fq 'lan-pool has unexpected next-pool=' 99-VERIFY-HEALTH.rsc || err 'health phase must assert no fallback DHCP pool'
+
+# Guarded one-shot legacy DHCP quarantine migration.
+grep -Fq 'migrate-legacy-dhcp:' Makefile || err 'Makefile must expose the guarded legacy DHCP migration target'
+grep -Fq 'OMEGA_ALLOW_LEGACY_DHCP_MIGRATION' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must require a dedicated explicit opt-in'
+grep -Fq 'OMEGA_ALLOW_LIVE_APPLY' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must also require live-apply opt-in'
+grep -Fq "\"\$CTL\" backup" tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must create a backup before mutation'
+grep -Fq "\"\$CTL\" dry-run \"\$MIGRATION\"" tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must syntax dry-run before mutation'
+grep -Fq "\"\$CTL\" apply-safe \"\$MIGRATION\"" tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must execute in RouterOS Safe Mode'
+grep -Fq 'legacy-dhcp-status' tools/migrate-legacy-dhcp.sh || err 'legacy DHCP migration must perform post-change read-only status'
+grep -Fq 'wifi-pool has active usage' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject active wifi-pool usage'
+grep -Fq 'zeaz-pool has active usage' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject active zeaz-pool usage'
+grep -Fq 'DHCP server still exists on WAN ether1' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject WAN DHCP service'
+grep -Fq 'legacy 192.168.0.x DHCP lease is still present' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject 192.168.0.x leases'
+grep -Fq 'legacy 192.168.10.x DHCP lease is still present' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must reject 192.168.10.x leases'
+grep -Fq "/ip pool set \$lanPool next-pool=none" migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must disconnect lan-pool fallback'
+grep -Fq "/ip dhcp-server network set \$net1 dns-server=192.168.1.1" migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must converge LAN DHCP DNS to RouterOS'
+grep -Fq 'LEGACY DHCP QUARANTINE PASS' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration success assertion missing'
+grep -Fq '/ip pool print count-only where name="lan-pool"' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must count lan-pool with print count-only'
+grep -Fq '/ip dhcp-server network print count-only where address="192.168.1.0/24"' migrations/20260921-legacy-dhcp-quarantine.rsc || err 'legacy migration must count production DHCP network with print count-only'
+for routeros_id in lanPool wifiPool zeazPool legacyAddress net0 net1 net10 verifyNet1; do
+  if grep -Fq ":len \$routeros_id" migrations/20260921-legacy-dhcp-quarantine.rsc; then
+    err "legacy migration must not use :len on RouterOS internal ID: $routeros_id"
+  fi
+done
+if grep -Eq '/ip pool remove|remove \[find\]' migrations/20260921-legacy-dhcp-quarantine.rsc; then err 'legacy DHCP migration must not delete pool objects or use broad remove expressions'; fi
+grep -Fq 'https://manual.mikrotik.com/llms.txt' docs/LEGACY-DHCP-MIGRATION.md || err 'legacy DHCP runbook must cite the official MikroTik manual index'
+grep -Fq 'https://manual.mikrotik.com/docs/management-tools/console/' docs/LEGACY-DHCP-MIGRATION.md || err 'legacy DHCP runbook must cite official Safe Mode documentation'
+grep -Fq 'https://manual.mikrotik.com/docs/network-management/dhcp/' docs/LEGACY-DHCP-MIGRATION.md || err 'legacy DHCP runbook must cite official DHCP documentation'
 grep -Fq '88:DC:96:55:58:E7=192.168.1.52=RITRUECHAI-AP02' 99-VERIFY-HEALTH.rsc || err 'health phase must assert EnGenius reservations'
 grep -Fq 'unowned rule found in ZEAZ-PoliceDBC-INPUT' 50-FIREWALL-NAT.rsc || err 'firewall phase must reject foreign rules in owned chains'
 grep -Fq 'CORE WireGuard peer public key differs from verified contract' 40-WIREGUARD-SERVICES.rsc || err 'WireGuard phase must validate peer identity'

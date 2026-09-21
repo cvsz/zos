@@ -5,10 +5,49 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 ## Unreleased
 
 ### DHCP pool normalization and phase diagnostics
-- Normalize RouterOS `/ip pool get ... ranges` values with `:tostr` before comparing them with the verified legacy/desired contracts.
+- Normalize RouterOS `/ip pool get ... ranges` values with `:tostr` before comparing them with the verified legacy/desired contracts (`:tostr` joins with semicolons on RouterOS 7.25beta4, verified live).
 - Represent the single dynamic address `192.168.1.121` canonically instead of as a degenerate start/end range.
-- Capture RouterOS import errors with `:onerror` per phase and include the failing phase filename plus the native RouterOS error text.
+- Echo each phase filename (`OMEGA_PHASE FILE:<name>`) before import so a Safe Mode failure identifies which phase did not complete.
 - Include `/ip pool print detail` and `/ip pool used print detail` in read-only audits so fallback pools such as `next-pool` can be reviewed before mutation.
+
+### Safe Mode commit via Ctrl-X release
+- Commit Safe Mode transactions with a second Ctrl-X (`Releasing Safe Mode... Success!`); `/quit` inside Safe Mode unrolls on RouterOS 7.25beta4, so prior `OMEGA_APPLY_PASS` runs were silently discarded.
+- Driver answers stale `Safe Mode is taken by current user in another session` with unroll before retrying, and confirms console `/quit` only after release.
+- One-shot legacy migration avoids `find` in `/import` (empty results) via index-anchored checks inside `:do {}`, removes DHCP networks high-index-first, and verifies post-remove DNS with `count-only where`.
+
+### Single-network Wi-Fi profile
+- เพิ่ม secret-free profile สำหรับ EWS1200D-10T + EWS310AP แบบ 1 SSID / 1 subnet `192.168.1.0/24` / untagged โดยไม่สร้าง Wi-Fi VLAN เพิ่ม
+- กำหนด controller `.50` และ AP reservations `.51-.58` ให้สอดคล้องกับ production DHCP contract
+- เพิ่ม baseline สำหรับ Band Steering, Fast Roaming, Auto Channel/Tx Power และ channel width โดยให้ PSK อยู่ใน EWS controller เท่านั้น
+- เพิ่ม read-only `make wifi-status` เพื่อดู RouterOS-side LAN/DHCP/pool/EnGenius/legacy indicators โดยไม่แก้ live config
+- เพิ่ม runbook อ้างอิง EnGenius official product documentation และ MikroTik manual
+
+
+### RouterOS object-count guard correction
+- เปลี่ยน one-shot legacy DHCP migration จากการใช้ `:len` กับ internal IDs ที่ได้จาก `find` มาใช้ `print count-only where ...` สำหรับ uniqueness/existence checks ตาม RouterOS CLI semantics
+- ใช้ `find` เฉพาะหลัง count ผ่านแล้ว เพื่อรับ object ID สำหรับ `get/set/remove`
+- ป้องกัน false refusal ที่พบจริงบน RouterOS 7.25beta4 เมื่อ `lan-pool` มีเพียงหนึ่งรายการแต่ guard `:len $lanPool != 1` ยัง fail
+
+
+### Legacy DHCP quarantine migration
+- เพิ่ม one-shot guarded migration สำหรับตัด fallback chain `lan-pool -> zeaz-pool -> wifi-pool -> lan-pool` โดยไม่ลบ legacy pool objects
+- refuse migration ถ้ามี legacy pool usage, DHCP reference, ARP/lease, WAN DHCP server หรือ topology ไม่ตรงกับ inspected state
+- ถอนเฉพาะ legacy DHCP networks `192.168.0.0/24`, `192.168.10.0/24` และ legacy bridge address `192.168.0.0/24`
+- migrate production DHCP DNS option ไปที่ RouterOS `192.168.1.1` หลังยืนยัน `allow-remote-requests=yes`
+- เพิ่ม `make migrate-legacy-dhcp` ที่บังคับ repo validation, encrypted backup, RouterOS dry-run, Safe Mode และ explicit opt-in สองชั้น
+- เพิ่ม read-only `legacy-dhcp-status` และ runbook อ้างอิง MikroTik official manual
+
+
+### Live topology drift precheck
+- Reject any enabled DHCP server bound to WAN `ether1`.
+- Reject the observed legacy `192.168.0.0/24` address on `DBC-Bridge-Local` until its ownership and migration are explicitly resolved.
+- Keep these conditions fail-closed rather than deleting unknown live state automatically.
+
+
+### DHCP fallback-pool drift detection
+- Fail closed when production `lan-pool` points at an unverified `next-pool`.
+- Surface the actual RouterOS error if the legacy-to-production pool-range migration fails.
+- Verify that the converged production pool has no fallback pool configured.
 
 
 ### RouterOS Safe Mode persistent receive buffer

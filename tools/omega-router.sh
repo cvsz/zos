@@ -30,6 +30,8 @@ Commands:
   apply-safe <files...>     Apply all files in one interactive RouterOS Safe Mode session
   verify                    Run read-only post-change verification
   fingerprint               Print stable target/config fingerprint for dry-run binding
+  legacy-dhcp-status        Read-only legacy DHCP/pool migration status
+  wifi-single-network-status Read-only single-network Wi-Fi RouterOS status
   fetch-export <name>       Download <name>.rsc from router
 EOF
 }
@@ -53,6 +55,14 @@ fingerprint() {
   printf 'router_user=%s\n' "$ROUTER_SSH_USER"
   printf 'env_sha256=%s\n' "$env_sha"
   ssh_mt ':put ("identity=" . [/system identity get name]); :put ("board=" . [/system resource get board-name]); :put ("version=" . [/system resource get version]); :put ("architecture=" . [/system resource get architecture-name])'
+}
+
+legacy_dhcp_status() {
+  ssh_mt ':put "===== POOLS ====="; /ip pool print detail; :put "===== POOL USAGE ====="; /ip pool used print detail; :put "===== DHCP SERVERS ====="; /ip dhcp-server print detail; :put "===== DHCP NETWORKS ====="; /ip dhcp-server network print detail; :put "===== LEGACY ADDRESS ====="; /ip address print detail where address="192.168.0.0/24"; :put "===== LEGACY ARP ====="; /ip arp print detail where address~"^192\\.168\\.(0|10)\\."'
+}
+
+wifi_single_network_status() {
+  ssh_mt ':put "===== WIFI SINGLE NETWORK ====="; :put "===== LAN GATEWAY ====="; /ip address print detail where address="192.168.1.1/24" and interface="DBC-Bridge-Local"; :put "===== DHCP SERVER ====="; /ip dhcp-server print detail where name="lan-dhcp"; :put "===== DHCP NETWORK ====="; /ip dhcp-server network print detail where address="192.168.1.0/24"; :put "===== LAN POOL ====="; /ip pool print detail where name="lan-pool"; :put "===== ENGENIUS DHCP ====="; /ip dhcp-server lease print detail where mac-address~"88:DC:96"; :put "===== ENGENIUS ARP ====="; /ip arp print detail where mac-address~"88:DC:96"; :put "===== LEGACY INDICATORS ====="; /ip address print detail where address="192.168.0.0/24"; /ip dhcp-server network print detail where address="192.168.0.0/24"; /ip dhcp-server network print detail where address="192.168.10.0/24"'
 }
 
 backup() {
@@ -134,17 +144,21 @@ apply_safe() {
     exit 4
   }
 
-  # One RouterOS error-aware transaction. /quit exists only on the success path.
+  # One RouterOS :do transaction. /quit exists only on the success path.
   # Sentinels are concatenated so terminal input echo cannot be mistaken for
-  # an executed PASS/FAIL result.
-  cmd=':onerror txError in={'
+  # an executed PASS/FAIL result. Each phase filename is echoed first so a
+  # failure inside Safe Mode identifies which import did not complete.
+  cmd=':do {'
   for file in "$@"; do
     [[ -f "$file" && "$file" == *.rsc ]] || { echo "Invalid RSC file: $file" >&2; exit 2; }
     remote="$(basename "$file")"
     scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
-    cmd+=" :onerror phaseError in={ /import file-name=$remote verbose=yes } do={ :put (\"OMEGA_PHASE_\" . \"FAIL $remote: \" . \$phaseError); :error (\"OMEGA phase failed $remote: \" . \$phaseError) };"
+    cmd+=" :put (\"OMEGA_PHASE_\" . \"FILE:$remote\"); /import file-name=$remote verbose=yes;"
   done
-  cmd+=' :put ("OMEGA_APPLY_" . "PASS"); /quit } do={ :put ("OMEGA_PHASE_" . "FAIL transaction: " . $txError); :error ("OMEGA transactional apply failed: " . $txError) }'
+  cmd+=' :put ("OMEGA_APPLY_" . "PASS") } on-error={ :put ("OMEGA_PHASE_" . "FAIL"); :error "OMEGA transactional apply failed" }'
+  # Commit happens in the driver with a second Ctrl-X ("Releasing Safe Mode").
+  # /quit inside Safe Mode unrolls on RouterOS 7.25beta4, so the driver sends
+  # /quit only after the release returns to a normal prompt.
 
   output_file="$(mktemp)"
   command_file="$(mktemp)"
@@ -156,6 +170,8 @@ apply_safe() {
     --target "$TARGET"
     --command-file "$command_file"
     --output-file "$output_file"
+    --safe-timeout 60
+    --transaction-timeout 600
   )
   if [[ -n "${ROUTER_SSH_KEY:-}" ]]; then
     driver_args+=(--identity "$ROUTER_SSH_KEY")
@@ -220,6 +236,8 @@ case "${1:-}" in
   apply-safe) shift; apply_safe "$@" ;;
   verify) verify ;;
   fingerprint) fingerprint ;;
+  legacy-dhcp-status) legacy_dhcp_status ;;
+  wifi-single-network-status) wifi_single_network_status ;;
   fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
   *) usage; exit 2 ;;
 esac

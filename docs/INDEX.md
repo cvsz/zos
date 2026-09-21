@@ -29,6 +29,8 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 | `docs/DISASTER-RECOVERY.md` | rollback and service restoration |
 | `docs/PRODUCTION-READINESS.md` | repository vs runtime acceptance |
 | `docs/PRODUCTION-MIGRATION.md` | legacy-to-current topology guidance |
+| `docs/LEGACY-DHCP-MIGRATION.md` | runbook สำหรับ quarantine legacy DHCP pools/networks แบบ one-shot และ fail-closed |
+| `docs/WIFI-SINGLE-NETWORK.md` | EWS1200D + EWS310AP profile แบบ 1 SSID / 1 subnet / untagged พร้อม roaming baseline |
 | `docs/ROUTEROS-LAB-TEST-PLAN.md` | isolated RouterOS safety test matrix and exit criteria |
 | `docs/SELF_HOSTED_RUNNER.md` | Windows runner lifecycle and security |
 | `runner/README.md` | Windows runner VM local environment reference |
@@ -55,6 +57,7 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 |---|---|
 | `.env.example` | operator/developer override reference |
 | `config/topology.env.example` | canonical topology/runtime template |
+| `config/wifi-single-network.env.example` | secret-free single-network Wi-Fi controller policy |
 | `core/.env.example` | CORE bootstrap/recovery options |
 | `zOS/.env.example` | zOS runtime/update-policy options |
 | `prod/.env.example` | PROD host identity/bootstrap reference |

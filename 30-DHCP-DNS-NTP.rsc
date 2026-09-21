@@ -7,6 +7,11 @@
 
 :local legacyRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
 :local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
+# :tostr joins multi-element ranges with semicolons on RouterOS 7.25beta4
+# (verified live), so string contracts below use semicolons for comparison
+# while the comma forms above remain the input for add/set.
+:local legacyRangesStr "192.168.1.50-192.168.1.99;192.168.1.109-192.168.1.118;192.168.1.121-192.168.1.237;192.168.1.240-192.168.1.254"
+:local desiredRangesStr "192.168.1.59-192.168.1.99;192.168.1.101-192.168.1.118;192.168.1.121;192.168.1.124-192.168.1.237;192.168.1.239-192.168.1.254"
 :if ([:len [/ip pool find where name="lan-pool"]] = 0) do={
     /ip pool add name=lan-pool ranges=$desiredRanges comment="OMEGA-MANAGED"
 } else={
@@ -14,11 +19,23 @@
     :local currentRanges [:tostr [/ip pool get $poolId ranges]]
     :local currentNextPool [:tostr [/ip pool get $poolId next-pool]]
     :put ("OMEGA: lan-pool ranges=" . $currentRanges . " next-pool=" . $currentNextPool)
-    :if ($currentRanges = $legacyRanges) do={
-        /ip pool set $poolId ranges=$desiredRanges
+
+    # Production lan-pool must not fall through into an unverified secondary pool.
+    # A legacy next-pool can reintroduce addresses intentionally excluded from the
+    # primary range and is therefore treated as live-state drift, not auto-removed.
+    :if ($currentNextPool != "" && $currentNextPool != "none") do={
+        :error ("lan-pool has unverified next-pool=" . $currentNextPool . "; inspect /ip pool print detail and clear/approve the fallback before migration")
+    }
+
+    :if ($currentRanges = $legacyRangesStr) do={
+        :onerror poolError in={
+            /ip pool set $poolId ranges=$desiredRanges
+        } do={
+            :error ("lan-pool range migration failed: " . $poolError)
+        }
         :log warning "OMEGA: migrated lan-pool to reserve EnGenius .50-.58 and all fixed infrastructure"
     } else={
-        :if ($currentRanges != $desiredRanges) do={
+        :if ($currentRanges != $desiredRangesStr) do={
             :error "lan-pool exists with ranges outside the verified/legacy contracts; refusing takeover"
         }
     }

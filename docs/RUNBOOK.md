@@ -66,7 +66,7 @@ make status
 make audit
 ~~~
 
-The active phase stack assumes the live router already matches the verified WAN/LAN split. If `ether1` is still bridged or another unowned object conflicts with the contract, normalization fails closed instead of silently taking ownership.
+The active phase stack assumes the live router already matches the verified WAN/LAN split. If `ether1` is still bridged or another unowned object conflicts with the contract, normalization fails closed instead of silently taking ownership. RouterOS-generated dynamic interface-list memberships (for example Detect Internet classifying `ether1` as LAN) are observational state and are not treated as explicit ownership conflicts; only static list memberships block normalization.
 
 For a clean rebuild, use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` through an operator-controlled console/MAC-WinBox recovery path; do not use the live phase stack as a substitute for clean-install bootstrap.
 

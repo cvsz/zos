@@ -24,7 +24,8 @@ required=(
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh
-  .github/workflows/validate.yml .github/workflows/zos-build.yml
+  .github/workflows/validate.yml .github/workflows/zos-build.yml .github/workflows/security-scan.yml
+  .github/dependabot.yml .dockerignore
 )
 for f in "${required[@]}"; do [[ -f "$f" ]] || err "missing required file: $f"; done
 
@@ -88,11 +89,21 @@ grep -Fq 'list="WAN" and interface="DBC-Bridge-Local" and dynamic=no' 20-NETWORK
 grep -Fq 'list="LAN" and interface="ether1" and dynamic=no' 20-NETWORK-NORMALIZE.rsc || err 'network phase must ignore dynamic LAN-list detection entries'
 grep -Fq 'Do not delete unrelated DHCP servers' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must document preservation of unowned DHCP servers'
 grep -Fq 'global upstream DNS' 30-DHCP-DNS-NTP.rsc || err 'DNS phase must preserve upstream resolver state'
+grep -Fq 'public key differs from verified contract' 40-WIREGUARD-SERVICES.rsc || err 'WireGuard phase must fail closed on peer identity drift'
+grep -Fq 'listen-port differs from verified contract' 40-WIREGUARD-SERVICES.rsc || err 'WireGuard phase must fail closed on interface drift'
+grep -Fq 'foreign rule exists in ZEAZ-PoliceDBC-INPUT' 50-FIREWALL-NAT.rsc || err 'managed firewall chains must reject foreign rules'
+grep -Fq 'foreign rule exists in ZEAZ-PoliceDBC-SRCNAT' 50-FIREWALL-NAT.rsc || err 'managed NAT chain must reject foreign rules'
 grep -Eq '/ip firewall (filter|nat) remove \[find where .*comment~|/ip firewall (filter|nat) remove \[find where .*comment=' 50-FIREWALL-NAT.rsc || err 'firewall cleanup must be restricted to zOS-owned comments'
 if grep -Eq 'core\.zeaz\.internal.*192\.168\.1\.128|192\.168\.1\.128.*core\.zeaz\.internal' 30-DHCP-DNS-NTP.rsc; then err 'DHCP/DNS phase hard-codes obsolete CORE address'; fi
 
 # Backup/apply/update safety.
 grep -Fq 'controller backup completed before import phases' 10-BACKUP-SNAPSHOT.rsc || err 'backup phase must defer backup creation to controller'
+grep -Fq 'OMEGA VERIFY PASS' 99-VERIFY-HEALTH.rsc || err 'verify phase must expose an explicit success sentinel'
+grep -Fq 'desiredRanges' 99-VERIFY-HEALTH.rsc || err 'verify phase must assert the exact DHCP pool contract'
+grep -Fq '88:DC:96:55:58:E7=192.168.1.52' 99-VERIFY-HEALTH.rsc || err 'verify phase must assert EnGenius fixed reservations'
+grep -Fq 'upstream gateway unreachable' 99-VERIFY-HEALTH.rsc || err 'verify phase must fail when upstream reachability is lost'
+grep -Fq 'internet IP unreachable' 99-VERIFY-HEALTH.rsc || err 'verify phase must fail when Internet reachability is lost'
+grep -Fq 'public key mismatch' 99-VERIFY-HEALTH.rsc || err 'verify phase must assert WireGuard peer identity'
 if grep -Eiq 'dont-encrypt=yes|system backup save' 10-BACKUP-SNAPSHOT.rsc; then err 'import phase must not create an unmanaged RouterOS binary backup'; fi
 grep -q '^OMEGA_REQUIRE_DRY_RUN=1$' config/topology.env.example || err 'dry-run gate must be enabled by default'
 grep -q '^OMEGA_REQUIRE_SAFE_MODE=1$' config/topology.env.example || err 'Safe Mode gate must be enabled by default'
@@ -103,6 +114,15 @@ grep -Fq 'OMEGA_APPLY_PASS' tools/omega-router.sh || err 'RouterOS apply helper 
 grep -Fq 'flock -n' tools/omega-router.sh || err 'Safe Mode apply must reject concurrent controller-side runs'
 grep -Fq "| tee \"\$output_file\"" tools/omega-router.sh || err 'Safe Mode apply output must stream in real time'
 grep -Fq 'Hijacking Safe Mode from someone' tools/omega-router.sh || err 'Safe Mode apply must surface stale/external Safe Mode ownership'
+grep -Fq "printf '\\004'" tools/omega-router.sh || err 'Safe Mode failure path must explicitly send Ctrl-D rollback'
+grep -Fq 'OMEGA_PHASE_PASS' tools/omega-router.sh || err 'Safe Mode apply must wait for per-phase success sentinels'
+grep -Fq 'wait_for_marker' tools/omega-router.sh || err 'Safe Mode apply must wait for RouterOS responses before sending subsequent phases'
+grep -Fq 'fingerprint)' tools/omega-router.sh || err 'router helper must expose deterministic target fingerprinting'
+grep -Fq 'OMEGA_DRY_RUN_MAX_AGE_SECONDS' tools/deploy-phases.sh || err 'dry-run evidence must have a freshness limit'
+grep -Fq 'target_fingerprint' tools/deploy-phases.sh || err 'dry-run evidence must be bound to the target router/runtime'
+grep -Fq 'topology_sha256' tools/deploy-phases.sh || err 'dry-run evidence must be bound to topology configuration'
+grep -Fq 'git_commit=' tools/deploy-phases.sh || err 'dry-run evidence must be bound to the reviewed git commit'
+if grep -Fq 'if [[ "${OMEGA_REQUIRE_SAFE_MODE:-1}" == "1" ]]' tools/deploy-phases.sh; then err 'production apply must not retain a Safe Mode bypass branch'; fi
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'
 grep -Fq '/system package update set channel=' tools/routeros-auto-update.sh && err 'update-check must not persistently set RouterOS update channel'
@@ -122,7 +142,76 @@ grep -q '^RUNNER_ALLOW_UNTRUSTED_FORKS=0$' runner/.env.example || err 'runner en
 grep -q '^RUNNER_ALLOW_LIVE_ROUTEROS_APPLY=0$' runner/.env.example || err 'runner env must block live RouterOS apply by default'
 grep -q '^ROUTEROS_UPDATE_CHANNEL=stable$' config/topology.env.example || err 'stable RouterOS update channel missing'
 grep -q '^OMEGA_AUTO_ROUTEROS_UPDATE=0$' config/topology.env.example || err 'safe auto-update default missing'
-grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' config/topology.env.example || err 'safe reboot default missing'
+grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0
+
+if grep -Eiq '192\.168\.205\.251|bridge-lan|core\.zeaz\.internal|192\.168\.1\.128' 00-PRECHECK.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc config/topology.env.example README.md ENVIRONMENTS.md; then
+  err 'active production sources still contain legacy topology values'
+fi
+
+if [[ -f core/install-ssh-key.sh ]]; then
+  grep -Fq 'ssh-keygen -y' core/install-ssh-key.sh || err 'SSH installer must validate private key material with ssh-keygen -y'
+  grep -Fq 'ssh-keygen -lf' core/install-ssh-key.sh || err 'SSH installer must validate public key fingerprint'
+  ! grep -Eq 'cvsz@192\.168\.1\.100|cvsz@192\.168\.1\.123' core/install-ssh-key.sh || err 'SSH installer contains a hard-coded target address'
+fi
+
+if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then err 'core/install.sh contains an APT signature-bypass pattern'; fi
+grep -Fq "SSH_ALLOW_PASSWORD=\"\${SSH_ALLOW_PASSWORD:-no}\"" core/install.sh || err 'CORE SSH password authentication is not fail-closed by default'
+grep -Fq 'D55C0D1AC78A8D8126CB631CFC9CA96ACA026560' core/install.sh || err 'HashiCorp APT signing-key fingerprint is not pinned'
+grep -Fq 'Password authentication is disabled by default' core/install.sh || err 'CORE installer lacks authorized_keys lockout prevention'
+grep -Fq 'trap - RETURN' core/install.sh || err 'HashiCorp temp cleanup trap is not self-clearing'
+
+# Third-party GitHub Actions must be immutable commit pins, not floating major tags.
+if grep -RInE --include='*.yml' --include='*.yaml' 'uses:[[:space:]]+[^[:space:]#]+@v[0-9]+' .github/workflows; then
+  err 'GitHub Actions workflows contain floating major-version action references'
+fi
+
+if command -v shellcheck >/dev/null 2>&1; then
+  mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
+  (("${#shells[@]}" == 0)) || shellcheck "${shells[@]}"
+else
+  echo 'WARN: shellcheck not installed; shell validation skipped'
+fi
+
+(( fail == 0 )) || exit 1
+echo 'Repository safety validation PASS'
+ config/topology.env.example || err 'safe reboot default missing'
+grep -q '^OMEGA_DRY_RUN_MAX_AGE_SECONDS=3600
+
+if grep -Eiq '192\.168\.205\.251|bridge-lan|core\.zeaz\.internal|192\.168\.1\.128' 00-PRECHECK.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc config/topology.env.example README.md ENVIRONMENTS.md; then
+  err 'active production sources still contain legacy topology values'
+fi
+
+if [[ -f core/install-ssh-key.sh ]]; then
+  grep -Fq 'ssh-keygen -y' core/install-ssh-key.sh || err 'SSH installer must validate private key material with ssh-keygen -y'
+  grep -Fq 'ssh-keygen -lf' core/install-ssh-key.sh || err 'SSH installer must validate public key fingerprint'
+  ! grep -Eq 'cvsz@192\.168\.1\.100|cvsz@192\.168\.1\.123' core/install-ssh-key.sh || err 'SSH installer contains a hard-coded target address'
+fi
+
+if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then err 'core/install.sh contains an APT signature-bypass pattern'; fi
+grep -Fq "SSH_ALLOW_PASSWORD=\"\${SSH_ALLOW_PASSWORD:-no}\"" core/install.sh || err 'CORE SSH password authentication is not fail-closed by default'
+grep -Fq 'D55C0D1AC78A8D8126CB631CFC9CA96ACA026560' core/install.sh || err 'HashiCorp APT signing-key fingerprint is not pinned'
+grep -Fq 'Password authentication is disabled by default' core/install.sh || err 'CORE installer lacks authorized_keys lockout prevention'
+grep -Fq 'trap - RETURN' core/install.sh || err 'HashiCorp temp cleanup trap is not self-clearing'
+
+if command -v shellcheck >/dev/null 2>&1; then
+  mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
+  (("${#shells[@]}" == 0)) || shellcheck "${shells[@]}"
+else
+  echo 'WARN: shellcheck not installed; shell validation skipped'
+fi
+
+(( fail == 0 )) || exit 1
+echo 'Repository safety validation PASS'
+ config/topology.env.example || err 'dry-run freshness default missing'
+grep -Fq 'config/topology.env' .dockerignore || err '.dockerignore must exclude populated topology config'
+grep -Fq 'backups' .dockerignore || err '.dockerignore must exclude local backups'
+grep -Fq 'state' .dockerignore || err '.dockerignore must exclude runtime state'
+grep -Fq 'git archive --format=tar HEAD' Makefile || err 'release packaging must use tracked git content only'
+if grep -Fq "tar --exclude='./.git'" Makefile; then err 'release packaging must not archive the working tree'; fi
+grep -Fq 'project-wide LICENSE is not declared' Makefile || err 'release must fail closed while project license is undeclared'
+grep -Fq 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25' .github/workflows/security-scan.yml || err 'Trivy action must be pinned to reviewed commit'
+grep -Fq 'package-ecosystem: github-actions' .github/dependabot.yml || err 'Dependabot must track GitHub Actions'
+grep -Fq 'package-ecosystem: docker' .github/dependabot.yml || err 'Dependabot must track Docker base images'
 
 if grep -Eiq '192\.168\.205\.251|bridge-lan|core\.zeaz\.internal|192\.168\.1\.128' 00-PRECHECK.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc config/topology.env.example README.md ENVIRONMENTS.md; then
   err 'active production sources still contain legacy topology values'

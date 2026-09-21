@@ -10,6 +10,10 @@ source "$ENV_FILE"
 [[ -n "$_LIVE_APPLY" ]] && OMEGA_ALLOW_LIVE_APPLY="$_LIVE_APPLY"
 
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=20 -o ServerAliveCountMax=3)
+if [[ -n "${ROUTER_SSH_KEY:-}" ]]; then
+  [[ -f "$ROUTER_SSH_KEY" ]] || { echo "Configured ROUTER_SSH_KEY not found: $ROUTER_SSH_KEY" >&2; exit 2; }
+  SSH_OPTS+=(-i "$ROUTER_SSH_KEY" -o IdentitiesOnly=yes)
+fi
 TARGET="${ROUTER_SSH_USER}@${ROUTER_HOST}"
 
 usage() {

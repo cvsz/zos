@@ -13,10 +13,11 @@
     :error "VERIFY FAIL: expected upstream default route is missing"
 }
 
-:local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121-192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
+:local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
 :local poolId [/ip pool find where name="lan-pool"]
 :if ([:len $poolId] != 1) do={ :error "VERIFY FAIL: lan-pool is not unique" }
-:if ([/ip pool get $poolId ranges] != $desiredRanges) do={ :error "VERIFY FAIL: lan-pool ranges do not match production contract" }
+:local currentRanges [:tostr [/ip pool get $poolId ranges]]
+:if ($currentRanges != $desiredRanges) do={ :error ("VERIFY FAIL: lan-pool ranges do not match production contract: " . $currentRanges) }
 
 :local fixedHosts {
     "48:4D:7E:D4:3A:C6=192.168.1.100=PoliceDBC-SEA";

@@ -13,7 +13,7 @@ This roadmap describes intended work. It must not be read as evidence that an it
 
 - formalize release/version policy before 1.0;
 - add stronger documentation/static link validation where useful;
-- add dependency/update policy for Actions and container base images;
+- maintain Dependabot coverage and immutable GitHub Action pins;
 - expand sanitized failure-mode evidence for CORE/GitHub incidents;
 - verify and document actual PROD host addressing before enabling cross-environment automation.
 
@@ -21,7 +21,7 @@ This roadmap describes intended work. It must not be read as evidence that an it
 
 - evaluate multi-controller/HA and reserved overlay design after route-conflict review;
 - expand observability and independent restore/DR exercises;
-- add release provenance/signing/SBOM distribution if the package becomes externally distributed.
+- add release provenance/attestation and distribute SBOM/security scan artifacts with external releases.
 
 ## Open project decisions
 

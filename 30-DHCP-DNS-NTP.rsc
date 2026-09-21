@@ -6,7 +6,7 @@
 # Existing unowned DHCP servers and upstream DNS resolver state are preserved.
 
 :local legacyRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
-:local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
+:local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121-192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
 :if ([:len [/ip pool find where name="lan-pool"]] = 0) do={
     /ip pool add name=lan-pool ranges=$desiredRanges comment="OMEGA-MANAGED"
 } else={
@@ -79,7 +79,7 @@
         :if ([:len [/ip dhcp-server lease find where address=$address]] > 0) do={
             :error ("" . $address . " is occupied by another DHCP lease; refusing to take over for " . $comment)
         }
-        /ip dhcp-server lease add server=$managedDhcpId address=$address mac-address=$mac comment=$comment
+        /ip dhcp-server lease add server=lan-dhcp address=$address mac-address=$mac comment=$comment
     } else={
         :local currentAddress [/ip dhcp-server lease get $leaseId address]
         :local dynamicLease [/ip dhcp-server lease get $leaseId dynamic]
@@ -95,7 +95,7 @@
 
             :if ($dynamicLease = true && $leaseStatus != "bound") do={
                 /ip dhcp-server lease remove $leaseId
-                /ip dhcp-server lease add server=$managedDhcpId address=$address mac-address=$mac comment=$comment
+                /ip dhcp-server lease add server=lan-dhcp address=$address mac-address=$mac comment=$comment
                 :set leaseId [/ip dhcp-server lease find where mac-address=$mac and dynamic=no]
             } else={
                 :if ($dynamicLease = true) do={ /ip dhcp-server lease make-static $leaseId }

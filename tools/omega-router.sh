@@ -47,10 +47,13 @@ audit() {
 }
 
 backup() {
-  local stamp name password password_file
+  local stamp name password password_file secret_dir
   stamp="$(date +%Y%m%d-%H%M%S)"
   name="omega-policedbc-$stamp"
   mkdir -p "$ROOT/backups"
+  secret_dir="${OMEGA_BACKUP_SECRET_DIR:-$HOME/.local/share/zos-mikrotik/secrets}"
+  mkdir -p "$secret_dir"
+  chmod 700 "$secret_dir"
   umask 077
   password="${OMEGA_BACKUP_PASSWORD:-}"
   if [[ -z "$password" ]]; then
@@ -61,7 +64,7 @@ backup() {
     echo 'OMEGA_BACKUP_PASSWORD must contain only letters, digits, _ or - and be at least 24 characters' >&2
     exit 2
   }
-  password_file="$ROOT/backups/$name.backup.password"
+  password_file="$secret_dir/$name.backup.password"
   printf '%s\n' "$password" > "$password_file"
   chmod 600 "$password_file"
 
@@ -71,7 +74,7 @@ backup() {
   ssh_mt ":foreach f in=[/file find where name=\"$name.rsc\"] do={ /file remove \$f }; :foreach f in=[/file find where name=\"$name.backup\"] do={ /file remove \$f }"
   echo "Saved $ROOT/backups/$name.rsc"
   echo "Saved encrypted binary backup $ROOT/backups/$name.backup"
-  echo "Backup password saved with mode 600 at $password_file"
+  echo "Backup password saved separately from backup artifacts with mode 600 at $password_file"
 }
 
 upload() {

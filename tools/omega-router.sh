@@ -119,7 +119,7 @@ apply_file() {
 
 apply_safe() {
   [[ "${OMEGA_ALLOW_LIVE_APPLY:-0}" == "1" ]] || { echo 'Live apply blocked: OMEGA_ALLOW_LIVE_APPLY=1 is required' >&2; exit 3; }
-  local file remote cmd output session_rc output_file apply_state_dir lock_file lock_fd
+  local file remote cmd output session_rc output_file apply_state_dir lock_file lock_fd evidence_dir stamp
   (( $# > 0 )) || { echo 'apply-safe requires at least one .rsc file' >&2; exit 2; }
 
   apply_state_dir="${OMEGA_STATE_DIR:-$ROOT/state/deploy}"
@@ -132,35 +132,38 @@ apply_safe() {
     exit 4
   }
 
-  # Build one RouterOS transaction. /quit is reachable only on the success path.
-  # Any import/assertion error reaches the outer on-error branch; stdin then closes
-  # without /quit so the Safe Mode session disconnects and RouterOS can roll back.
+  # One RouterOS :do transaction. /quit exists only on the success path.
+  # On an import/assertion error, no /quit is sent; stdin closes and the
+  # Safe Mode owner disconnects so RouterOS can roll back floating changes.
   cmd=':do {'
   for file in "$@"; do
     [[ -f "$file" && "$file" == *.rsc ]] || { echo "Invalid RSC file: $file" >&2; exit 2; }
     remote="$(basename "$file")"
     scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
-    cmd+=
+    cmd+=" /import file-name=$remote verbose=yes;"
+  done
+  cmd+=' :put "OMEGA_APPLY_PASS"; /quit } on-error={ :put "OMEGA_PHASE_FAIL"; :error "OMEGA transactional apply failed" }'
 
   output_file="$(mktemp)"
+  trap 'rm -f "${output_file:-}"' RETURN
   set +e
   {
     printf '\030'
     sleep 1
-    printf '%s' "$cmd"
+    printf '%s\n' "$cmd"
   } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 | tee "$output_file"
   session_rc=${PIPESTATUS[1]}
   set -e
   output="$(cat "$output_file")"
-  rm -f "$output_file"
 
   grep -Fq 'Hijacking Safe Mode from someone' <<<"$output" && {
     echo 'RouterOS reported an existing Safe Mode owner; no concurrent apply can be trusted. Clear the stale Safe Mode session before retrying.' >&2
     exit 4
   }
+
   for file in "$@"; do
     remote="$(basename "$file")"
-    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
+    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \\$f }" >/dev/null 2>&1 || true
   done
 
   (( session_rc == 0 )) || { echo 'Safe Mode apply session failed' >&2; exit 4; }
@@ -177,19 +180,17 @@ apply_safe() {
     exit 4
   }
 
-  local evidence_dir stamp
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   evidence_dir="$ROOT/backups/evidence/$stamp"
   mkdir -p "$evidence_dir"
   for remote in omega-policedbc-evidence.rsc omega-policedbc-after.rsc; do
     if scp "${SSH_OPTS[@]}" "$TARGET:$remote" "$evidence_dir/$remote" >/dev/null 2>&1; then
-      ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
+      ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \\$f }" >/dev/null 2>&1 || true
     else
       echo "WARN: post-apply evidence file was not available: $remote" >&2
     fi
   done
 }
-
 verify() {
   ssh_mt '/system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip dhcp-server print detail; /ip dhcp-server lease print detail where mac-address~"88:DC:96"; /ip firewall filter print stats where comment~"PoliceDBC:"; /ip firewall nat print stats where comment~"PoliceDBC:"; /ip service print; :put ("upstream_replies=" . [/ping 192.168.200.1 count=3]); :put ("internet_replies=" . [/ping 1.1.1.1 count=3]); :put ("cloudflare_dns=" . [/resolve cloudflare.com])'
 }
@@ -204,227 +205,6 @@ case "${1:-}" in
   apply-safe) shift; apply_safe "$@" ;;
   verify) verify ;;
   fingerprint) fingerprint ;;
-  fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
-  *) usage; exit 2 ;;
-esac
-\n'
-    cmd+="/import file-name=$remote verbose=yes;"
-  done
-  cmd+=
-
-  output_file="$(mktemp)"
-  set +e
-  {
-    printf '\030'
-    sleep 1
-    printf '%s' "$cmd"
-  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 | tee "$output_file"
-  session_rc=${PIPESTATUS[1]}
-  set -e
-  output="$(cat "$output_file")"
-  rm -f "$output_file"
-
-  grep -Fq 'Hijacking Safe Mode from someone' <<<"$output" && {
-    echo 'RouterOS reported an existing Safe Mode owner; no concurrent apply can be trusted. Clear the stale Safe Mode session before retrying.' >&2
-    exit 4
-  }
-  for file in "$@"; do
-    remote="$(basename "$file")"
-    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
-  done
-
-  (( session_rc == 0 )) || { echo 'Safe Mode apply session failed' >&2; exit 4; }
-  grep -Fq '[Safe Mode taken]' <<<"$output" || {
-    echo 'RouterOS did not confirm Safe Mode; refusing to treat apply as successful' >&2
-    exit 4
-  }
-  grep -Fq 'OMEGA_APPLY_PASS' <<<"$output" || {
-    echo 'RouterOS did not confirm that all production phases completed successfully' >&2
-    exit 4
-  }
-  ! grep -Fq 'OMEGA_PHASE_FAIL' <<<"$output" || {
-    echo 'At least one production phase failed inside Safe Mode' >&2
-    exit 4
-  }
-}
-
-verify() {
-  ssh_mt '/system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip service print; /ping 192.168.200.1 count=3; /ping 1.1.1.1 count=3; :put [/resolve cloudflare.com]'
-}
-
-case "${1:-}" in
-  status) status ;;
-  audit) audit ;;
-  backup) backup ;;
-  upload) [[ $# -eq 2 ]] || { usage; exit 2; }; upload "$2" ;;
-  dry-run) [[ $# -eq 2 ]] || { usage; exit 2; }; dry_run "$2" ;;
-  apply) [[ $# -eq 2 ]] || { usage; exit 2; }; apply_file "$2" ;;
-  apply-safe) shift; apply_safe "$@" ;;
-  verify) verify ;;
-  fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
-  *) usage; exit 2 ;;
-esac
-\n:put "OMEGA_APPLY_PASS";'
-  cmd+=
-
-  output_file="$(mktemp)"
-  set +e
-  {
-    printf '\030'
-    sleep 1
-    printf '%s' "$cmd"
-  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 | tee "$output_file"
-  session_rc=${PIPESTATUS[1]}
-  set -e
-  output="$(cat "$output_file")"
-  rm -f "$output_file"
-
-  grep -Fq 'Hijacking Safe Mode from someone' <<<"$output" && {
-    echo 'RouterOS reported an existing Safe Mode owner; no concurrent apply can be trusted. Clear the stale Safe Mode session before retrying.' >&2
-    exit 4
-  }
-  for file in "$@"; do
-    remote="$(basename "$file")"
-    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
-  done
-
-  (( session_rc == 0 )) || { echo 'Safe Mode apply session failed' >&2; exit 4; }
-  grep -Fq '[Safe Mode taken]' <<<"$output" || {
-    echo 'RouterOS did not confirm Safe Mode; refusing to treat apply as successful' >&2
-    exit 4
-  }
-  grep -Fq 'OMEGA_APPLY_PASS' <<<"$output" || {
-    echo 'RouterOS did not confirm that all production phases completed successfully' >&2
-    exit 4
-  }
-  ! grep -Fq 'OMEGA_PHASE_FAIL' <<<"$output" || {
-    echo 'At least one production phase failed inside Safe Mode' >&2
-    exit 4
-  }
-}
-
-verify() {
-  ssh_mt '/system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip service print; /ping 192.168.200.1 count=3; /ping 1.1.1.1 count=3; :put [/resolve cloudflare.com]'
-}
-
-case "${1:-}" in
-  status) status ;;
-  audit) audit ;;
-  backup) backup ;;
-  upload) [[ $# -eq 2 ]] || { usage; exit 2; }; upload "$2" ;;
-  dry-run) [[ $# -eq 2 ]] || { usage; exit 2; }; dry_run "$2" ;;
-  apply) [[ $# -eq 2 ]] || { usage; exit 2; }; apply_file "$2" ;;
-  apply-safe) shift; apply_safe "$@" ;;
-  verify) verify ;;
-  fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
-  *) usage; exit 2 ;;
-esac
-\n/quit'
-  cmd+=
-
-  output_file="$(mktemp)"
-  set +e
-  {
-    printf '\030'
-    sleep 1
-    printf '%s' "$cmd"
-  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 | tee "$output_file"
-  session_rc=${PIPESTATUS[1]}
-  set -e
-  output="$(cat "$output_file")"
-  rm -f "$output_file"
-
-  grep -Fq 'Hijacking Safe Mode from someone' <<<"$output" && {
-    echo 'RouterOS reported an existing Safe Mode owner; no concurrent apply can be trusted. Clear the stale Safe Mode session before retrying.' >&2
-    exit 4
-  }
-  for file in "$@"; do
-    remote="$(basename "$file")"
-    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
-  done
-
-  (( session_rc == 0 )) || { echo 'Safe Mode apply session failed' >&2; exit 4; }
-  grep -Fq '[Safe Mode taken]' <<<"$output" || {
-    echo 'RouterOS did not confirm Safe Mode; refusing to treat apply as successful' >&2
-    exit 4
-  }
-  grep -Fq 'OMEGA_APPLY_PASS' <<<"$output" || {
-    echo 'RouterOS did not confirm that all production phases completed successfully' >&2
-    exit 4
-  }
-  ! grep -Fq 'OMEGA_PHASE_FAIL' <<<"$output" || {
-    echo 'At least one production phase failed inside Safe Mode' >&2
-    exit 4
-  }
-}
-
-verify() {
-  ssh_mt '/system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip service print; /ping 192.168.200.1 count=3; /ping 1.1.1.1 count=3; :put [/resolve cloudflare.com]'
-}
-
-case "${1:-}" in
-  status) status ;;
-  audit) audit ;;
-  backup) backup ;;
-  upload) [[ $# -eq 2 ]] || { usage; exit 2; }; upload "$2" ;;
-  dry-run) [[ $# -eq 2 ]] || { usage; exit 2; }; dry_run "$2" ;;
-  apply) [[ $# -eq 2 ]] || { usage; exit 2; }; apply_file "$2" ;;
-  apply-safe) shift; apply_safe "$@" ;;
-  verify) verify ;;
-  fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
-  *) usage; exit 2 ;;
-esac
-\n} on-error={ :put "OMEGA_PHASE_FAIL"; :error "OMEGA transactional apply failed" }\n'
-
-  output_file="$(mktemp)"
-  set +e
-  {
-    printf '\030'
-    sleep 1
-    printf '%s' "$cmd"
-  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 | tee "$output_file"
-  session_rc=${PIPESTATUS[1]}
-  set -e
-  output="$(cat "$output_file")"
-  rm -f "$output_file"
-
-  grep -Fq 'Hijacking Safe Mode from someone' <<<"$output" && {
-    echo 'RouterOS reported an existing Safe Mode owner; no concurrent apply can be trusted. Clear the stale Safe Mode session before retrying.' >&2
-    exit 4
-  }
-  for file in "$@"; do
-    remote="$(basename "$file")"
-    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
-  done
-
-  (( session_rc == 0 )) || { echo 'Safe Mode apply session failed' >&2; exit 4; }
-  grep -Fq '[Safe Mode taken]' <<<"$output" || {
-    echo 'RouterOS did not confirm Safe Mode; refusing to treat apply as successful' >&2
-    exit 4
-  }
-  grep -Fq 'OMEGA_APPLY_PASS' <<<"$output" || {
-    echo 'RouterOS did not confirm that all production phases completed successfully' >&2
-    exit 4
-  }
-  ! grep -Fq 'OMEGA_PHASE_FAIL' <<<"$output" || {
-    echo 'At least one production phase failed inside Safe Mode' >&2
-    exit 4
-  }
-}
-
-verify() {
-  ssh_mt '/system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip service print; /ping 192.168.200.1 count=3; /ping 1.1.1.1 count=3; :put [/resolve cloudflare.com]'
-}
-
-case "${1:-}" in
-  status) status ;;
-  audit) audit ;;
-  backup) backup ;;
-  upload) [[ $# -eq 2 ]] || { usage; exit 2; }; upload "$2" ;;
-  dry-run) [[ $# -eq 2 ]] || { usage; exit 2; }; dry_run "$2" ;;
-  apply) [[ $# -eq 2 ]] || { usage; exit 2; }; apply_file "$2" ;;
-  apply-safe) shift; apply_safe "$@" ;;
-  verify) verify ;;
   fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
   *) usage; exit 2 ;;
 esac

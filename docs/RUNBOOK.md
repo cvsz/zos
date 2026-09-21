@@ -76,7 +76,7 @@ For a clean rebuild, use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` through a
 make backup
 ~~~
 
-`make backup` creates a text export and an AES-SHA256 encrypted binary RouterOS backup, downloads both, stores the generated backup password locally with restrictive permissions, and removes the temporary controller-created files from the router after successful download. Keep the local evidence outside source control.
+`make backup` creates a text export and an AES-SHA256 encrypted binary RouterOS backup and downloads both to `backups/`. The generated decryption password is stored separately with mode 0600 under the protected controller state secret directory (or `OMEGA_BACKUP_SECRET_DIR` when explicitly configured), not beside the backup artifact. Temporary router-side backup files are removed after successful download. Keep both artifacts and decryption secrets outside source control and back them up through separate trusted storage paths.
 
 ## 6. Dry-run intended phases
 

@@ -41,21 +41,20 @@
 :if ($lanDns != "1.1.1.1,8.8.8.8" && $lanDns != "192.168.1.1") do={ :error ("MIGRATION REFUSED: production LAN DNS changed to " . $lanDns) }
 :if ([/ip dns get allow-remote-requests] != true) do={ :error "MIGRATION REFUSED: router DNS cache is not enabled for LAN clients" }
 
-# Quarantine the legacy pools instead of deleting them. Keeping the pool objects
-# preserves rollback/evidence while removing every fallback edge from production.
+# แยก legacy pools ออกจาก production โดยไม่ลบ object เพื่อเก็บหลักฐานและ rollback path
+# พร้อมตัด fallback edge ทุกเส้นออกจาก production
 :if ([/ip pool get $lanPool next-pool] != "none") do={ /ip pool set $lanPool next-pool=none }
 :if ([/ip pool get $wifiPool next-pool] != "none") do={ /ip pool set $wifiPool next-pool=none }
 :if ([/ip pool get $zeazPool next-pool] != "none") do={ /ip pool set $zeazPool next-pool=none }
 
-# Retire only the two inspected legacy DHCP network declarations.
+# ถอนเฉพาะ DHCP network legacy สองรายการที่ตรวจสอบแล้ว
  /ip dhcp-server network remove $net0
  /ip dhcp-server network remove $net10
 
-# Production clients may use the RouterOS DNS cache because allow-remote-requests
-# was explicitly verified above.
+# ให้ production clients ใช้ RouterOS DNS cache ได้ เพราะตรวจ allow-remote-requests ไว้ด้านบนแล้ว
  /ip dhcp-server network set $net1 dns-server=192.168.1.1
 
-# Remove only the inspected legacy bridge address. 192.168.1.1/24 is untouched.
+# ถอนเฉพาะ legacy bridge address ที่ตรวจแล้ว โดยไม่แตะ 192.168.1.1/24
  /ip address remove $legacyAddress
 
 :if ([/ip pool get $lanPool next-pool] != "none") do={ :error "VERIFY FAIL: lan-pool fallback remains" }

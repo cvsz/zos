@@ -7,10 +7,11 @@
 
 :local legacyRanges "192.168.1.50-192.168.1.99,192.168.1.109-192.168.1.118,192.168.1.121-192.168.1.237,192.168.1.240-192.168.1.254"
 :local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121-192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
-:if ([:len [/ip pool find where name="lan-pool"]] = 0) do={
+:local poolId [/ip pool find where name="lan-pool"]
+:if ([:len $poolId] > 1) do={ :error "lan-pool exists more than once; refusing ambiguous management" }
+:if ([:len $poolId] = 0) do={
     /ip pool add name=lan-pool ranges=$desiredRanges comment="OMEGA-MANAGED"
 } else={
-    :local poolId [/ip pool find where name="lan-pool"]
     :local currentRanges [/ip pool get $poolId ranges]
     :if ($currentRanges = $legacyRanges) do={
         /ip pool set $poolId ranges=$desiredRanges
@@ -23,19 +24,21 @@
 }
 
 # Do not delete unrelated DHCP servers. zOS creates/manages only lan-dhcp.
-:if ([:len [/ip dhcp-server find where name="lan-dhcp"]] = 0) do={
+:local dhcpId [/ip dhcp-server find where name="lan-dhcp"]
+:if ([:len $dhcpId] > 1) do={ :error "lan-dhcp exists more than once; refusing ambiguous management" }
+:if ([:len $dhcpId] = 0) do={
     /ip dhcp-server add name=lan-dhcp interface=DBC-Bridge-Local address-pool=lan-pool lease-time=12h authoritative=yes disabled=no comment="OMEGA-MANAGED LAN DHCP"
 } else={
-    :local dhcpId [/ip dhcp-server find where name="lan-dhcp"]
     :if ([/ip dhcp-server get $dhcpId interface] != "DBC-Bridge-Local") do={ :error "lan-dhcp exists on another interface; refusing takeover" }
     :if ([/ip dhcp-server get $dhcpId address-pool] != "lan-pool") do={ :error "lan-dhcp uses another pool; refusing takeover" }
     :if ([/ip dhcp-server get $dhcpId disabled] = true) do={ :error "lan-dhcp exists but is disabled; refusing implicit enable" }
 }
 
-:if ([:len [/ip dhcp-server network find where address="192.168.1.0/24"]] = 0) do={
+:local netId [/ip dhcp-server network find where address="192.168.1.0/24"]
+:if ([:len $netId] > 1) do={ :error "192.168.1.0/24 DHCP network exists more than once; refusing ambiguous management" }
+:if ([:len $netId] = 0) do={
     /ip dhcp-server network add address=192.168.1.0/24 gateway=192.168.1.1 dns-server=192.168.1.1 comment="OMEGA-MANAGED"
 } else={
-    :local netId [/ip dhcp-server network find where address="192.168.1.0/24"]
     :if ([/ip dhcp-server network get $netId gateway] != "192.168.1.1") do={ :error "LAN DHCP gateway differs from contract; refusing takeover" }
     :if ([/ip dhcp-server network get $netId dns-server] != "192.168.1.1") do={ :error "LAN DHCP DNS differs from contract; refusing takeover" }
 }
@@ -125,14 +128,19 @@
 
 :local dnsId
 :set dnsId [/ip dns static find where name="core.zeaz.dev"]
+:if ([:len $dnsId] > 1) do={ :error "core.zeaz.dev DNS record is duplicated; refusing ambiguous management" }
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=core.zeaz.dev address=192.168.1.123 ttl=1d comment="OMEGA-MANAGED zeaz core" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.123") do={ :error "core.zeaz.dev DNS conflicts with verified address" } }
 :set dnsId [/ip dns static find where name="prod.zeaz.dev"]
+:if ([:len $dnsId] > 1) do={ :error "prod.zeaz.dev DNS record is duplicated; refusing ambiguous management" }
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=prod.zeaz.dev address=192.168.1.122 ttl=1d comment="OMEGA-MANAGED zeaz prod" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.122") do={ :error "prod.zeaz.dev DNS conflicts with verified address" } }
 :set dnsId [/ip dns static find where name="ha-a.zeaz.dev"]
+:if ([:len $dnsId] > 1) do={ :error "ha-a.zeaz.dev DNS record is duplicated; refusing ambiguous management" }
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=ha-a.zeaz.dev address=192.168.1.119 ttl=1d comment="OMEGA-MANAGED zeaz ha-a" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.119") do={ :error "ha-a.zeaz.dev DNS conflicts with verified address" } }
 :set dnsId [/ip dns static find where name="ha-b.zeaz.dev"]
+:if ([:len $dnsId] > 1) do={ :error "ha-b.zeaz.dev DNS record is duplicated; refusing ambiguous management" }
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=ha-b.zeaz.dev address=192.168.1.120 ttl=1d comment="OMEGA-MANAGED zeaz ha-b" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.120") do={ :error "ha-b.zeaz.dev DNS conflicts with verified address" } }
 :set dnsId [/ip dns static find where name="wifi.zeaz.dev"]
+:if ([:len $dnsId] > 1) do={ :error "wifi.zeaz.dev DNS record is duplicated; refusing ambiguous management" }
 :if ([:len $dnsId] = 0) do={ /ip dns static add name=wifi.zeaz.dev address=192.168.1.238 ttl=1d comment="OMEGA-MANAGED ZeaZ WiFi repeater" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.238") do={ :error "wifi.zeaz.dev DNS conflicts with verified address" } }
 
 /system clock set time-zone-name=Asia/Bangkok

@@ -38,9 +38,9 @@ default via 192.168.1.1 dev ens33
 - `192.168.1.0/24` must never be an active `AllowedIPs` route on `policedbc`.
 - CORE SSH is fail-closed toward public-key authentication: password login is disabled by default by `core/install.sh`, and the installer refuses to disable passwords unless an authorized key is already present.
 
-## Reinstall / recovery source of truth
+## Reinstall / recovery bootstrap
 
-Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` for a clean RouterOS rebuild. It encodes the verified `ether1` DHCP WAN and `DBC-Bridge-Local` LAN topology and the verified fixed host inventory, including the existing `core=.123` and `prod=.122` repository baseline. Always dry-run and maintain a recovery path before live apply.
+Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` only as the clean-rebuild bootstrap for the verified `ether1` DHCP WAN, `DBC-Bridge-Local` LAN, and fixed-host inventory. It is not evidence that every active production phase is converged. After recovery connectivity is proven, run the current guarded phase workflow and verification before declaring production acceptance. Always dry-run and maintain a recovery path before live apply.
 
 ## Quick start
 

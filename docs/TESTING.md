@@ -19,7 +19,7 @@ make evidence
 make security-evidence
 ~~~
 
-`make evidence` validates deterministic committed fixtures. `make security-evidence` generates repository-derived SPDX/SARIF/audit artifacts. Neither is a penetration test or live-production certification.
+`make evidence` validates deterministic committed fixtures. `make security-evidence` generates a tracked-file SPDX inventory plus literal-secret SARIF/audit artifacts. The GitHub `security-scan.yml` workflow separately runs Trivy filesystem and controller-image vulnerability scanning for HIGH/CRITICAL findings. None of these is a penetration test or live-production certification.
 
 ## CORE runtime
 
@@ -54,6 +54,7 @@ Use `make backup` and `make dry-run` before any approved live change.
 | `evidence-validation.yml` | corpus and generated security evidence | no |
 | `routeros-skills.yml` | vendored RouterOS skill integrity | no |
 | `zos-build.yml` | tarball and OCI package build | no |
+| `security-scan.yml` | Trivy filesystem and controller-image vulnerability gate | no |
 
 The optional self-hosted runner probe remains validation-only.
 

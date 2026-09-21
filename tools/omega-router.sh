@@ -178,7 +178,7 @@ apply_safe() {
   }
 
   rollback_session() {
-    printf '\004' >&"$write_fd" 2>/dev/null || true
+    printf '\004' >&"$write_fd" || true
     set +e
     wait "$session_pid"
     set -e
@@ -187,7 +187,7 @@ apply_safe() {
   printf '\030' >&"$write_fd"
   wait_for_marker '[Safe Mode taken]' 'Hijacking Safe Mode from someone' 30
   if [[ "$wait_result" == hijack ]]; then
-    printf 'd\n/quit\n' >&"$write_fd" 2>/dev/null || true
+    printf 'd\n/quit\n' >&"$write_fd" || true
     set +e
     wait "$session_pid"
     set -e
@@ -213,7 +213,7 @@ apply_safe() {
       exit 4
     fi
 
-    printf ':local omegaHistory [/system/history/print detail as-value where floating-undo=yes]; :if ([:len $omegaHistory] > 80) do={ :put "OMEGA_SAFE_BUDGET_FAIL" } else={ :put "OMEGA_SAFE_BUDGET_PASS" }\n' >&"$write_fd"
+    printf '%s\n' ':local omegaHistory [/system/history/print detail as-value where floating-undo=yes]; :if ([:len $omegaHistory] > 80) do={ :put "OMEGA_SAFE_BUDGET_FAIL" } else={ :put "OMEGA_SAFE_BUDGET_PASS" }' >&"$write_fd"
     wait_for_marker 'OMEGA_SAFE_BUDGET_PASS' 'OMEGA_SAFE_BUDGET_FAIL' 30
     if [[ "$wait_result" != pass ]]; then
       echo "Safe Mode floating-undo budget exceeded or could not be verified after $remote. Rolling back with Ctrl-D." >&2
@@ -248,7 +248,8 @@ apply_safe() {
 }
 
 verify() {
-  ssh_mt ':local up [/ping 192.168.200.1 count=3]; :local internet [/ping 1.1.1.1 count=3]; :if ($up = 0) do={ :error "upstream reachability failed" }; :if ($internet = 0) do={ :error "internet reachability failed" }; /system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip dhcp-server print detail where name="lan-dhcp"; /ip dhcp-server lease print detail where mac-address~"88:DC:96"; /ip firewall filter print stats where comment~"PoliceDBC|ZEAZ-PoliceDBC"; /ip firewall nat print stats where comment~"PoliceDBC|ZEAZ-PoliceDBC"; /ip service print; :put [/resolve cloudflare.com]'
+  local cmd=':local up [/ping 192.168.200.1 count=3]; :local internet [/ping 1.1.1.1 count=3]; :if ($up = 0) do={ :error "upstream reachability failed" }; :if ($internet = 0) do={ :error "internet reachability failed" }; /system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip dhcp-server print detail where name="lan-dhcp"; /ip dhcp-server lease print detail where mac-address~"88:DC:96"; /ip firewall filter print stats where comment~"PoliceDBC|ZEAZ-PoliceDBC"; /ip firewall nat print stats where comment~"PoliceDBC|ZEAZ-PoliceDBC"; /ip service print; :put [/resolve cloudflare.com]'
+  ssh_mt "$cmd"
 }
 
 fingerprint() {

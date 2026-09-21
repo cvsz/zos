@@ -209,6 +209,9 @@ grep -Fq 'config/topology.env' .dockerignore || err '.dockerignore must exclude 
 grep -Fq 'backups' .dockerignore || err '.dockerignore must exclude local backups'
 grep -Fq 'state' .dockerignore || err '.dockerignore must exclude runtime state'
 grep -Fq 'git archive --format=tar HEAD' Makefile || err 'release packaging must use tracked git content only'
+grep -Fq 'FROM alpine:3.22.6@sha256:abd29214470819ed7667c87c1ceebc89aae766453a5b3cc09e8a52b9f796fd5a' zOS/Dockerfile || err 'controller base image must be pinned to the reviewed Alpine index digest'
+grep -Fq 'OMEGA_BACKUP_SECRET_DIR' tools/omega-router.sh || err 'backup decryption secrets must be stored separately from backup artifacts'
+grep -Fq 'exists more than once; refusing ambiguous management' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must reject duplicate managed objects'
 if grep -Fq "tar --exclude='./.git'" Makefile; then err 'release packaging must not archive the working tree'; fi
 grep -Fq 'project-wide LICENSE is not declared' Makefile || err 'release must fail closed while project license is undeclared'
 grep -Fq 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25' .github/workflows/security-scan.yml || err 'Trivy action must be pinned to reviewed commit'

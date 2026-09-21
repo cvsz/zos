@@ -58,6 +58,7 @@ record_dry_run_success() {
 dry_run_is_current() {
   [[ -s "$DRY_RUN_MARKER" ]] || return 1
   [[ "$DRY_RUN_MAX_AGE_SECONDS" =~ ^[0-9]+$ ]] || return 1
+  (( DRY_RUN_MAX_AGE_SECONDS >= 1 && DRY_RUN_MAX_AGE_SECONDS <= 3600 )) || return 1
   local expected actual marker_epoch now_epoch marker_git marker_topology marker_fingerprint current_fingerprint
   expected="$(mktemp)"
   actual="$(mktemp)"
@@ -73,7 +74,7 @@ dry_run_is_current() {
   marker_topology="$(sed -n 's/^topology_sha256=//p' "$DRY_RUN_MARKER")"
   [[ "$marker_topology" == "$(topology_hash)" ]] || return 1
 
-  marker_fingerprint="$(sed -n '/^router_host=/p;/^router_identity=/p;/^router_board=/p;/^router_arch=/p;/^router_version=/p' "$DRY_RUN_MARKER")"
+  marker_fingerprint="$(sed -n '/^router_host=/p;/^router_identity=/p;/^router_board=/p;/^router_arch=/p;/^router_version=/p;/^router_config_sha256=/p' "$DRY_RUN_MARKER")"
   current_fingerprint="$(target_fingerprint)"
   [[ "$marker_fingerprint" == "$current_fingerprint" ]] || return 1
 

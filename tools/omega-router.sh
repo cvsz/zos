@@ -103,8 +103,19 @@ apply_file() {
 
 apply_safe() {
   [[ "${OMEGA_ALLOW_LIVE_APPLY:-0}" == "1" ]] || { echo 'Live apply blocked: OMEGA_ALLOW_LIVE_APPLY=1 is required' >&2; exit 3; }
-  local file remote cmd output session_rc
+  local file remote cmd output session_rc output_file apply_state_dir lock_file lock_fd
   (( $# > 0 )) || { echo 'apply-safe requires at least one .rsc file' >&2; exit 2; }
+
+  apply_state_dir="${OMEGA_STATE_DIR:-$ROOT/state/deploy}"
+  mkdir -p "$apply_state_dir"
+  lock_file="$apply_state_dir/apply-safe.lock"
+  command -v flock >/dev/null 2>&1 || { echo 'flock is required for apply-safe concurrency protection' >&2; exit 2; }
+  exec {lock_fd}>"$lock_file"
+  flock -n "$lock_fd" || {
+    echo 'Another apply-safe session is already active on this controller; refusing concurrent RouterOS Safe Mode apply.' >&2
+    exit 4
+  }
+
   cmd=''
   for file in "$@"; do
     [[ -f "$file" && "$file" == *.rsc ]] || { echo "Invalid RSC file: $file" >&2; exit 2; }
@@ -115,16 +126,22 @@ apply_safe() {
   done
   cmd+=$'\n:put "OMEGA_APPLY_PASS"\n/quit\n'
 
+  output_file="$(mktemp)"
   set +e
-  output="$( {
+  {
     printf '\030'
     sleep 1
     printf '%s' "$cmd"
-  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 )"
-  session_rc=$?
+  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 | tee "$output_file"
+  session_rc=${PIPESTATUS[1]}
   set -e
+  output="$(cat "$output_file")"
+  rm -f "$output_file"
 
-  printf '%s\n' "$output"
+  grep -Fq 'Hijacking Safe Mode from someone' <<<"$output" && {
+    echo 'RouterOS reported an existing Safe Mode owner; no concurrent apply can be trusted. Clear the stale Safe Mode session before retrying.' >&2
+    exit 4
+  }
   for file in "$@"; do
     remote="$(basename "$file")"
     ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true

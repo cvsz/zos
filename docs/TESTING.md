@@ -19,7 +19,7 @@ make evidence
 make security-evidence
 ~~~
 
-`make evidence` validates deterministic committed fixtures. `make security-evidence` generates repository-derived SPDX/SARIF/audit artifacts. Neither is a penetration test or live-production certification.
+`make evidence` validates deterministic committed fixtures. `make security-evidence` generates repository-derived file-inventory/secret-audit SPDX/SARIF artifacts. The `security-scan.yml` workflow separately generates Trivy filesystem/image vulnerability SARIF plus a package-aware CycloneDX SBOM for the controller image, retains them as a 30-day Actions artifact, and gates HIGH/CRITICAL findings. None of these repository checks proves live-production health.
 
 ## CORE runtime
 

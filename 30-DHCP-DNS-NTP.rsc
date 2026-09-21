@@ -32,10 +32,12 @@
     :if ([/ip dhcp-server get $dhcpId disabled] = true) do={ :error "lan-dhcp exists but is disabled; refusing implicit enable" }
 }
 
-:if ([:len [/ip dhcp-server network find where address="192.168.1.0/24"]] = 0) do={
+:local netIds [/ip dhcp-server network find where address="192.168.1.0/24"]
+:if ([:len $netIds] > 1) do={ :error "LAN DHCP network is duplicated; refusing ambiguous rewrite" }
+:if ([:len $netIds] = 0) do={
     /ip dhcp-server network add address=192.168.1.0/24 gateway=192.168.1.1 dns-server=192.168.1.1 comment="OMEGA-MANAGED"
 } else={
-    :local netId [/ip dhcp-server network find where address="192.168.1.0/24"]
+    :local netId $netIds
     :if ([/ip dhcp-server network get $netId gateway] != "192.168.1.1") do={ :error "LAN DHCP gateway differs from contract; refusing takeover" }
     :if ([/ip dhcp-server network get $netId dns-server] != "192.168.1.1") do={ :error "LAN DHCP DNS differs from contract; refusing takeover" }
 }
@@ -123,17 +125,25 @@
     :log info "OMEGA: preserving upstream DNS allow-remote-requests=no"
 }
 
-:local dnsId
-:set dnsId [/ip dns static find where name="core.zeaz.dev"]
-:if ([:len $dnsId] = 0) do={ /ip dns static add name=core.zeaz.dev address=192.168.1.123 ttl=1d comment="OMEGA-MANAGED zeaz core" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.123") do={ :error "core.zeaz.dev DNS conflicts with verified address" } }
-:set dnsId [/ip dns static find where name="prod.zeaz.dev"]
-:if ([:len $dnsId] = 0) do={ /ip dns static add name=prod.zeaz.dev address=192.168.1.122 ttl=1d comment="OMEGA-MANAGED zeaz prod" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.122") do={ :error "prod.zeaz.dev DNS conflicts with verified address" } }
-:set dnsId [/ip dns static find where name="ha-a.zeaz.dev"]
-:if ([:len $dnsId] = 0) do={ /ip dns static add name=ha-a.zeaz.dev address=192.168.1.119 ttl=1d comment="OMEGA-MANAGED zeaz ha-a" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.119") do={ :error "ha-a.zeaz.dev DNS conflicts with verified address" } }
-:set dnsId [/ip dns static find where name="ha-b.zeaz.dev"]
-:if ([:len $dnsId] = 0) do={ /ip dns static add name=ha-b.zeaz.dev address=192.168.1.120 ttl=1d comment="OMEGA-MANAGED zeaz ha-b" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.120") do={ :error "ha-b.zeaz.dev DNS conflicts with verified address" } }
-:set dnsId [/ip dns static find where name="wifi.zeaz.dev"]
-:if ([:len $dnsId] = 0) do={ /ip dns static add name=wifi.zeaz.dev address=192.168.1.238 ttl=1d comment="OMEGA-MANAGED ZeaZ WiFi repeater" } else={ :if ([/ip dns static get $dnsId address] != "192.168.1.238") do={ :error "wifi.zeaz.dev DNS conflicts with verified address" } }
+:local dnsRecords {
+    "core.zeaz.dev=192.168.1.123";
+    "prod.zeaz.dev=192.168.1.122";
+    "ha-a.zeaz.dev=192.168.1.119";
+    "ha-b.zeaz.dev=192.168.1.120";
+    "wifi.zeaz.dev=192.168.1.238"
+}
+:foreach item in=$dnsRecords do={
+    :local name [:pick $item 0 [:find $item "="]]
+    :local address [:pick $item ([:find $item "="] + 1) [:len $item]]
+    :local dnsIds [/ip dns static find where name=$name]
+    :if ([:len $dnsIds] > 1) do={ :error ("duplicate static DNS records for " . $name . "; refusing ambiguous rewrite") }
+    :if ([:len $dnsIds] = 0) do={
+        /ip dns static add name=$name address=$address ttl=1d comment="OMEGA-MANAGED local DNS"
+    } else={
+        :local dnsId $dnsIds
+        :if ([/ip dns static get $dnsId address] != $address) do={ :error ($name . " DNS conflicts with verified address") }
+    }
+}
 
 /system clock set time-zone-name=Asia/Bangkok
 /system ntp client set enabled=yes

@@ -38,6 +38,7 @@ def stream_chunk(chunk: bytes, evidence) -> None:
 def read_until(
     proc: subprocess.Popen[bytes],
     evidence,
+    buffer: bytearray,
     wanted: tuple[bytes, ...],
     timeout: float,
     abort: tuple[bytes, ...] = (),
@@ -47,9 +48,21 @@ def read_until(
         raise SessionError("SSH stdout is unavailable")
     selector.register(proc.stdout, selectors.EVENT_READ)
     deadline = time.monotonic() + timeout
-    buf = bytearray()
+
+    def match_buffer() -> bytes | None:
+        for token in abort:
+            if token in buffer:
+                raise SessionError(f"abort token observed: {token.decode(errors='replace')}")
+        for token in wanted:
+            if token in buffer:
+                return token
+        return None
 
     try:
+        matched = match_buffer()
+        if matched is not None:
+            return matched
+
         while time.monotonic() < deadline:
             events = selector.select(timeout=min(0.5, max(0.0, deadline - time.monotonic())))
             if not events:
@@ -64,16 +77,13 @@ def read_until(
                 continue
 
             stream_chunk(chunk, evidence)
-            buf.extend(chunk)
-            if len(buf) > 65536:
-                del buf[:-32768]
+            buffer.extend(chunk)
+            if len(buffer) > 65536:
+                del buffer[:-32768]
 
-            for token in abort:
-                if token in buf:
-                    raise SessionError(f"abort token observed: {token.decode(errors='replace')}")
-            for token in wanted:
-                if token in buf:
-                    return token
+            matched = match_buffer()
+            if matched is not None:
+                return matched
 
         raise SessionError(
             "timeout waiting for: " + ", ".join(t.decode(errors="replace") for t in wanted)
@@ -156,6 +166,7 @@ def main() -> int:
     ssh_cmd.append(args.target)
 
     safe_mode = False
+    receive_buffer = bytearray()
     proc = subprocess.Popen(
         ssh_cmd,
         stdin=subprocess.PIPE,
@@ -166,12 +177,13 @@ def main() -> int:
 
     with output_path.open("wb") as evidence:
         try:
-            read_until(proc, evidence, (b"] >",), args.prompt_timeout)
+            read_until(proc, evidence, receive_buffer, (b"] >",), args.prompt_timeout)
 
             send(proc, b"\x18")
             safe_token = read_until(
                 proc,
                 evidence,
+                receive_buffer,
                 (b"[Safe Mode taken]", b"Taking Safe Mode session... Success!"),
                 args.safe_timeout,
                 abort=(b"Hijacking Safe Mode from someone",),
@@ -182,12 +194,13 @@ def main() -> int:
             )
             sys.stdout.flush()
 
-            read_until(proc, evidence, (b"<SAFE>",), args.safe_timeout)
+            read_until(proc, evidence, receive_buffer, (b"<SAFE>",), args.safe_timeout)
 
             send(proc, command)
             result = read_until(
                 proc,
                 evidence,
+                receive_buffer,
                 (b"OMEGA_APPLY_PASS", b"OMEGA_PHASE_FAIL"),
                 args.transaction_timeout,
             )

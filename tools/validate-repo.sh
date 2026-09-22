@@ -21,6 +21,7 @@ required=(
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example config/wifi-single-network.env.example
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py tools/test-routeros-safe-session.py
+  tools/chr-lab-harness.py tools/test-chr-lab-harness-regression.py
   tools/test-backup-hardening.sh
   tools/migrate-legacy-dhcp.sh migrations/20260921-legacy-dhcp-quarantine.rsc
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
@@ -31,8 +32,9 @@ required=(
   .github/workflows/security-scan.yml .github/dependabot.yml
 )
 for f in "${required[@]}"; do [[ -f "$f" ]] || err "missing required file: $f"; done
-python3 -m py_compile tools/routeros-safe-session.py tools/test-routeros-safe-session.py || err 'RouterOS Safe Mode session driver failed Python syntax validation'
+python3 -m py_compile tools/routeros-safe-session.py tools/test-routeros-safe-session.py tools/chr-lab-harness.py tools/test-chr-lab-harness-regression.py || err 'RouterOS Safe Mode session driver failed Python syntax validation'
 python3 tools/test-routeros-safe-session.py || err 'RouterOS Safe Mode session regression tests failed'
+python3 tools/test-chr-lab-harness-regression.py || err 'CHR lab harness event-driven regression tests failed'
 
 grep -q '^CF_CONNECTOR_HOST=core\.zeaz\.dev$' cloudflare/config.env.example || err 'Cloudflare connector template is missing the approved CORE host'
 grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documentation is missing'

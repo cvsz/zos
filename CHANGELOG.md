@@ -4,6 +4,11 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### CHR lab harness regression suite - Python 3.14 compatibility (Phase B)
+- แก้ `tools/test-chr-lab-harness-regression.py` ที่ crash ด้วย `AttributeError` บน Python 3.14: ลงทะเบียน dynamically loaded modules ใน `sys.modules` ก่อน `exec_module` (จำเป็นสำหรับ `@dataclass` processing)
+- เขียนชุดทดสอบใหม่ 9 เคสให้ใช้ event-driven API ปัจจุบัน (`run_event_driven_test`, `expected_action`/`expected_conditions`) แทน `run_scenario_test`/`expected` ที่ไม่มีอยู่แล้ว; ทุกเคส assert ว่า failure condition ถูก exercise และ detect จริงผ่าน `transport.read()`/`write()` (connection/auth/prompt timeout, Safe Mode refusal, hijack, static/stale spoof rejection, disconnect, commit gate)
+- ผูกชุดทดสอบเข้า `tools/validate-repo.sh` (รันใน `make validate` และ CI `validate.yml`); ผ่าน 9/9 ทั้ง direct run และ pytest บน Python 3.14.4
+
 ### Backup lifecycle hardening - atomic publish, checksums, manifest (Phase 3 P0-2)
 - เขียนใหม่ `backup()` ใน `tools/omega-router.sh` แบบ idempotent: ตัวระบุไม่ซ้ำ (`timestamp-pid-random`), `umask 077` ก่อน `mkdir`, `chmod 700` dirs / `chmod 600` artifacts, staging ส่วนตัวผ่าน `mktemp -d` + ไฟล์ `.part`, ตรวจสอบ `nonempty` ทั้งสองไฟล์, คำนวณ `SHA-256`, เผยแพร่แบบ `atomic mv` แล้วจึงเขียน `.sha256` + `manifest.json` (ผูก `backup_id/commit_sha/created_at/router_host/sha256/bytes` โดยไม่รวม password/secret)
 - ส่ง RouterOS backup commands ทาง `stdin pipe` (`ssh_stdin`) แทน `ssh argv` เพื่อไม่ให้ password ปรากฏใน `ps/process output`; ปิด shell tracing (`set +x`) รอบ password handling และไม่ echo password ใน stdout/logs/errors; รองรับ `OMEGA_BACKUP_DIR` override สำหรับ test isolation, `OMEGA_BACKUP_RETENTION_COUNT` (default 30, ไม่ลบ copy เดียวที่เหลือ), `OMEGA_BACKUP_OFFHOST_DIR` (optional copy, warn ไม่ fail backup หลัก)

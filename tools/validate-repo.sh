@@ -275,5 +275,7 @@ else
   echo 'WARN: shellcheck not installed; shell validation skipped'
 fi
 
+grep -Fq 'Unsafe direct apply is disabled.' tools/omega-router.sh || err 'unsafe direct apply must remain disabled until verified Safe Mode exists'
+grep -Fq 'Live apply blocked: interactive Safe Mode has not been verified.' tools/routeros-safe-session.py || err 'Safe Mode driver must remain fail-closed until CHR evidence exists'
 (( fail == 0 )) || exit 1
 echo 'Repository safety validation PASS'

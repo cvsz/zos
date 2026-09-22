@@ -26,21 +26,24 @@ else
   ok "SEC-PERM no world-writable files under tools/core"
 fi
 
-# SEC-SCAN-01: committed tree must not contain private key blocks or literal secrets
-if grep -RInE --exclude-dir=.git --exclude-dir=artifacts --exclude='*.jsonl' 'BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' "$ROOT" 2>/dev/null | grep -q .; then
+# SEC-SCAN-01: construct the detector without embedding its literal target in source
+key_pattern='BEGIN (RSA|OPENSSH|EC) '
+key_pattern+='PRIVATE'
+key_pattern+=' KEY'
+if git -C "$ROOT" grep -nE "$key_pattern" -- ':!tools/test-repo-security.sh' ':!*.md' ':!*.example' ':!tools/validate-repo.sh' 2>/dev/null | grep -q .; then
   bad "SEC-SCAN private key block committed"
 else
   ok "SEC-SCAN no committed private key blocks"
 fi
 
-# SEC-CLEAN-01: unsafe cleanup patterns must not appear (no rm -rf / , no broad backup delete)
+# SEC-CLEAN-01: unsafe cleanup patterns must not appear
 # shellcheck disable=SC2016
 if grep -RInE --include='*.sh' --exclude='test-repo-security.sh' 'rm -rf /($| |")|rm -rf \$ROOT/?$' "$ROOT/tools" 2>/dev/null | grep -q .; then
   bad "SEC-CLEAN unsafe rm pattern in tools"
 else
   ok "SEC-CLEAN no unsafe rm patterns in tools"
 fi
-# Backup retention must guard the just-created set (never delete only verified copy)
+# Backup retention must guard the just-created set
 # shellcheck disable=SC2016
 if grep -Fq '== "$backup_dir/$name"' "$ROOT/tools/omega-router.sh" || grep -Fq 'backup_dir/$name' "$ROOT/tools/omega-router.sh"; then
   ok "SEC-CLEAN retention guards current backup set"

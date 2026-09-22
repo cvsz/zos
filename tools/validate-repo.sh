@@ -129,7 +129,7 @@ grep -Fq 'transactional apply failed' tools/omega-router.sh || err 'RouterOS app
 grep -Fq 'OMEGA_APPLY_PASS' tools/omega-router.sh || err 'RouterOS apply helper does not require phase success confirmation'
 grep -Fq 'flock -n' tools/omega-router.sh || err 'Safe Mode apply must reject concurrent controller-side runs'
 grep -Fq 'tools/routeros-safe-session.py' tools/omega-router.sh || err 'Safe Mode apply must use the dedicated session driver'
-grep -Fq 'ssh_cmd.extend([args.target, command])' tools/routeros-safe-session.py || err 'Safe Mode driver must pass command as SSH argument (RouterOS 7.25beta4 :local stdin incompatibility)'
+grep -Fq 'Live apply blocked: interactive Safe Mode has not been verified.' tools/routeros-safe-session.py || err 'unverified RouterOS live apply must be blocked'
 # shellcheck disable=SC2016
 grep -Fq 'cat "$file"' tools/omega-router.sh || err 'Safe Mode apply must embed RSC content directly (RouterOS 7.25beta4 :local stdin incompatibility)'
 grep -Fq 'test_preloaded_safe_prompt_survives_previous_match' tools/test-routeros-safe-session.py || err 'Safe Mode same-chunk regression test missing'

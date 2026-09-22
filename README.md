@@ -40,7 +40,7 @@ default via 192.168.1.1 dev ens33
 
 ## Reinstall / recovery bootstrap
 
-Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` only as the clean-rebuild bootstrap for the verified `ether1` DHCP WAN, `DBC-Bridge-Local` LAN, and fixed-host inventory. It is not evidence that every active production phase is converged. After recovery connectivity is proven, run the current guarded phase workflow and verification before declaring production acceptance. Always dry-run and maintain a recovery path before live apply.
+Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` only as the clean-rebuild bootstrap for the verified `ether1` DHCP WAN, `DBC-Bridge-Local` single untagged LAN, current DHCP/fixed-host inventory, WireGuard, firewall/NAT, service-hardening, and observability baseline. The bootstrap deliberately refuses non-clean pool/DHCP/WireGuard/firewall state before mutation. A clean rebuild generates a fresh router WireGuard keypair and prints its public key for CORE reconciliation; private key material is never stored in Git. It is not evidence that every active production phase is converged. After recovery connectivity is proven, run the current guarded phase workflow and verification before declaring production acceptance. Always dry-run and maintain a recovery path before live apply.
 
 ## Quick start
 

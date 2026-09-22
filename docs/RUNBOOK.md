@@ -102,26 +102,20 @@ The controller uses unique temporary RouterOS filenames for dry-runs and removes
 
 Historical clean-slate/PPPoE/alternate-WireGuard paths are not part of the active production phase sequence.
 
-## 7. Apply only in an approved change window
+## 7. Production apply is currently blocked
 
-Fail-closed defaults are:
+The repository currently **does not provide a CHR-verified interactive RouterOS Safe Mode driver**. Both direct `tools/omega-router.sh apply` and the `apply-safe` driver are fail-closed. Setting `OMEGA_ALLOW_LIVE_APPLY=1` does not make them safe or functional. Do not bypass this gate with ad-hoc SSH imports, production CI, or an unverified alternative driver.
 
-~~~text
-OMEGA_REQUIRE_DRY_RUN=1
-OMEGA_REQUIRE_SAFE_MODE=1
-OMEGA_ALLOW_LIVE_APPLY=0
-~~~
+Before enabling live apply in a future reviewed change, require all of the following:
 
-After a successful current dry-run, explicitly enable live apply only for the approved window:
+1. A real interactive SSH/PTY session with authenticated host keys, verified RouterOS prompt, and confirmed Safe Mode entry before any mutation.
+2. Tests against an isolated CHR target for successful commit, phase failure, timeout, SSH disconnect, stale Safe Mode session, concurrent apply, and rollback.
+3. Evidence that command echo cannot spoof a success marker and that failure cannot release Safe Mode as a commit.
+4. Verified backup/restore and an independent local management or console recovery path.
+5. Current dry-run, router fingerprint, commit SHA, operator approval, and an approved maintenance window.
+6. Post-change management, WAN, LAN/DHCP/DNS, WireGuard, firewall/NAT and CORE/PROD connectivity verification.
 
-~~~bash
-export OMEGA_ALLOW_LIVE_APPLY=1
-make apply
-~~~
-
-Production apply always requires Safe Mode and a current dry-run. zOS sends the active phase stack as one RouterOS transaction: the success path reaches `OMEGA_APPLY_PASS` and `/quit` only after every import, including the assertive health phase, succeeds. An import/assertion failure never reaches `/quit`; the interactive session closes without committing the Safe Mode transaction. Missing Safe Mode confirmation, target drift, stale dry-run evidence, or a concurrent apply fails closed.
-
-Do not bypass this workflow with ad-hoc individual imports for ordinary production changes. Do not release Safe Mode until independent verification succeeds.
+Keep live apply disabled if any criterion is unverified. Use `docs/ROUTEROS-LAB-TEST-PLAN.md`, `docs/PRODUCTION-READINESS.md`, and `docs/OPENCODE-MASTER-PROMPT.md` to track implementation and evidence. No current CI result substitutes for CHR or production runtime evidence.
 
 ## 8. Verify
 

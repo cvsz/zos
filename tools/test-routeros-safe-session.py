@@ -310,8 +310,6 @@ def test_never_quit_during_safe() -> None:
         proc.wait(timeout=2)
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
 
 def test_main_blocks_unprotected_ssh_apply(monkeypatch, tmp_path, capsys) -> None:
     """An unverified remote-command SSH invocation must never be started."""
@@ -331,3 +329,7 @@ def test_main_blocks_unprotected_ssh_apply(monkeypatch, tmp_path, capsys) -> Non
     ))
     assert module.main() != 0
     assert "Live apply blocked" in capsys.readouterr().err
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

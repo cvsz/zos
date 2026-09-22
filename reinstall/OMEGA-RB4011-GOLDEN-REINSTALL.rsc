@@ -10,19 +10,18 @@
 
 # Clean-rebuild guard: refuse managed/legacy state that could make this bootstrap
 # ambiguous or leave a partially-owned production policy behind.
-:if ([/ip pool print count-only where name="lan-pool"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: lan-pool already exists; reset/clean the target first" }
-:if ([/ip pool print count-only where name="wifi-pool"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: legacy wifi-pool still exists; reset/clean the target first" }
-:if ([/ip pool print count-only where name="zeaz-pool"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: legacy zeaz-pool still exists; reset/clean the target first" }
-:if ([/ip dhcp-server print count-only where name="lan-dhcp"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: lan-dhcp already exists; reset/clean the target first" }
-:if ([/ip dhcp-server print count-only where interface="ether1" and disabled=no] > 0) do={ :error "GOLDEN REINSTALL REFUSED: enabled DHCP server exists on WAN ether1" }
-:if ([/ip dhcp-server network print count-only where address="192.168.0.0/24"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: legacy 192.168.0.0/24 DHCP network exists" }
-:if ([/ip dhcp-server network print count-only where address="192.168.10.0/24"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: legacy 192.168.10.0/24 DHCP network exists" }
+:if ([/ip pool print count-only] > 0) do={ :error "GOLDEN REINSTALL REFUSED: IP pools already exist; reset/clean the target first" }
+:if ([/ip dhcp-server print count-only] > 0) do={ :error "GOLDEN REINSTALL REFUSED: DHCP servers already exist; reset/clean the target first" }
+:if ([/ip dhcp-server network print count-only] > 0) do={ :error "GOLDEN REINSTALL REFUSED: DHCP networks already exist; reset/clean the target first" }
+:if ([/ip dhcp-server lease print count-only] > 0) do={ :error "GOLDEN REINSTALL REFUSED: DHCP leases already exist; reset/clean the target first" }
 :if ([/ip address print count-only where address="192.168.0.0/24"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: legacy 192.168.0.0/24 address exists" }
-:if ([/interface wireguard print count-only where name="wg-remote"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: wg-remote already exists; reset/clean the target first" }
+:if ([/interface wireguard print count-only] > 0) do={ :error "GOLDEN REINSTALL REFUSED: WireGuard interfaces already exist; reset/clean the target first" }
 :if ([/ip address print count-only where address="10.8.0.1/24"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: WireGuard gateway address already exists" }
 :if ([/ip firewall filter print count-only where chain="ZEAZ-PoliceDBC-INPUT"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: managed input firewall chain already exists" }
 :if ([/ip firewall filter print count-only where chain="ZEAZ-PoliceDBC-FORWARD"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: managed forward firewall chain already exists" }
 :if ([/ip firewall nat print count-only where chain="ZEAZ-PoliceDBC-SRCNAT"] > 0) do={ :error "GOLDEN REINSTALL REFUSED: managed srcnat chain already exists" }
+:if ([/ip firewall filter print count-only] > 0) do={ :error "GOLDEN REINSTALL REFUSED: existing firewall filter rules remain; use a clean target" }
+:if ([/ip firewall nat print count-only] > 0) do={ :error "GOLDEN REINSTALL REFUSED: existing firewall NAT rules remain; use a clean target" }
 :if ([/interface print count-only where name="ether1"] != 1) do={ :error "GOLDEN REINSTALL REFUSED: ether1 is missing or ambiguous" }
 :if ([/interface print count-only where name="ether2"] != 1) do={ :error "GOLDEN REINSTALL REFUSED: ether2 is missing or ambiguous" }
 
@@ -130,16 +129,8 @@
  /interface wireguard peers add interface=wg-remote public-key="HPe+0n/v9HL+0DtcvhNg+GnHwdkgDZertP5NHdZNwW8=" allowed-address=10.8.0.2/32 comment="core.zeaz.dev"
 :put ("OMEGA WG ROUTER PUBLIC KEY=" . [/interface wireguard get 0 public-key])
 
-# Managed firewall policy. This golden bootstrap owns only the ZEAZ/PoliceDBC
-# chains it creates; run it on a clean target so unrelated default rules cannot
-# silently widen the policy after a custom-chain return.
-:if ([/ip firewall filter print count-only] > 0) do={
-    :error "GOLDEN REINSTALL REFUSED: existing firewall filter rules remain; use a clean target"
-}
-:if ([/ip firewall nat print count-only] > 0) do={
-    :error "GOLDEN REINSTALL REFUSED: existing firewall NAT rules remain; use a clean target"
-}
-
+# Managed firewall policy. Clean-target firewall/NAT emptiness was proven in
+# preflight so unrelated rules cannot silently widen policy after chain return.
  /ip firewall filter add chain=input action=jump jump-target=ZEAZ-PoliceDBC-INPUT place-before=0 comment="ZEAZ-PoliceDBC: INPUT POLICY"
  /ip firewall filter add chain=forward action=jump jump-target=ZEAZ-PoliceDBC-FORWARD place-before=0 comment="ZEAZ-PoliceDBC: FORWARD POLICY"
  /ip firewall filter add chain=ZEAZ-PoliceDBC-INPUT action=accept connection-state=established,related,untracked comment="PoliceDBC: INPUT Established Related"

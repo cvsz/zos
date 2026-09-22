@@ -14,7 +14,11 @@ zOS distinguishes deterministic repository evidence from live production evidenc
 | Security repository evidence | file inventory + secret-audit SPDX/SARIF | `make security-evidence` |
 | Vulnerability + package evidence | Trivy filesystem/image SARIF + controller CycloneDX SBOM retained 30 days | `security-scan.yml` |
 | Vendored RouterOS skills | skill structure/relative links/secret checks | `routeros-skills.yml` |
-| **CHR Lab Mock Evidence** | `artifacts/chr-lab/manifest-*.json` (failure-injection scenarios) | `python3 tools/chr-lab-harness.py` |
+| **CHR Lab Mock Evidence** | `artifacts/chr-lab/manifest-*.json` (16 failure-injection scenarios, all mock PASS) | `python3 tools/chr-lab-harness.py` |
+| Backup Evidence | `backups/omega-policedbc-*.manifest.json` + `.sha256` (commit/checksum/timestamp binding, no secrets) | `bash tools/test-backup-hardening.sh` |
+| Restore Evidence | `artifacts/restore-drill/manifest-*.json` (MOCK PASS/FAIL/BLOCKED with elapsed_ms, sanitized) | `bash tools/test-restore-drill.sh` |
+| Repository Security | ignore/build-context/perm/secret-scan/cleanup gates | `bash tools/test-repo-security.sh` |
+| Topology Reconciliation | offline read-only contract agreement (no production access) | `bash tools/topology-reconcile.sh` |
 | CORE active routing | live route/WireGuard state | `make core-check`, `make core-find-conflict` |
 | Router runtime | live read-only status/verify | `make status`, `make audit`, `make verify` |
 | End-to-end reachability | live smoke checks | `make e2e` |

@@ -3,6 +3,7 @@ config/wifi-single-network.env
 backups/
 state/
 *.backup
+*.backup.password
 *.key
 *.pem
 .env

@@ -78,6 +78,13 @@ make backup
 
 `make backup` creates a text export and an AES-SHA256 encrypted binary RouterOS backup with a unique `timestamp-pid-random` identifier. Both artifacts download into private `mktemp` staging as `.part` files, are validated nonempty, checksummed (SHA-256), then published atomically with `.sha256` sidecars and a `manifest.json` binding `backup_id/commit_sha/created_at/router_host/artifact sha256/bytes` (no passwords/secrets). The backup password travels via stdin pipe (never in ssh argv/ps), shell tracing is disabled around secrets, dirs are `700` and artifacts/manifest/password are `600`. Router temp files are removed only after the local verified copy is complete; partial/empty downloads never report success. Retention keeps the newest `OMEGA_BACKUP_RETENTION_COUNT` (default 30) sets without deleting the only verified copy; `OMEGA_BACKUP_OFFHOST_DIR` enables an optional best-effort off-host copy. Keep the local evidence outside source control. A backup file alone is not proof of recoverability until a restore drill succeeds on disposable CHR.
 
+Verify a backup set without restoring:
+
+~~~bash
+tools/restore-drill.sh --backup-id <omega-policedbc-...> --mock
+bash tools/topology-reconcile.sh
+~~~
+
 ## 6. Dry-run intended phases
 
 ~~~bash

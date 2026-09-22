@@ -44,6 +44,9 @@ Do not copy production MAC addresses, WireGuard keys, or host credentials into t
 | UP-02 | Update verification | Success requires the running RouterOS version to change |
 | BK-01 | Encrypted backup | AES-SHA256 binary backup and text export are downloaded |
 | BK-02 | Backup cleanup | Controller-created temporary router files are removed |
+| GR-01 | Golden clean-target refusal | Existing pool/DHCP/WireGuard/firewall state is rejected before the first mutation |
+| GR-02 | Golden rebuild convergence | Clean target reaches current DHCP/DNS/NTP/WireGuard/firewall/service contract and emits `OMEGA GOLDEN REINSTALL VERIFY PASS` |
+| GR-03 | Golden WireGuard key handoff | Rebuild prints the new router WireGuard public key and CORE is reconciled before VPN acceptance |
 | OWN-01 | Preserve unowned DHCP/DNS | Unrelated objects remain unchanged |
 | OWN-02 | Preserve unowned firewall/NAT | Unrelated rules remain unchanged |
 | OWN-03 | Ownership conflict | Conflict fails closed instead of takeover |
@@ -90,11 +93,21 @@ Expected: Safe Mode is explicitly confirmed, all active phases run in the same S
 
 Repeat the lab apply but terminate the interactive session abnormally before the final clean exit. Reconnect and compare the router configuration with the baseline. Changes made inside that Safe Mode session must be rolled back.
 
-### 6. Ownership tests
+### 6. Golden rebuild test
+
+Use a disposable clean RouterOS/CHR target with recovery access:
+
+~~~text
+reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc
+~~~
+
+First prove the clean-target guard by leaving a disposable pool or firewall rule present and confirming the script refuses before changing production-contract state. Then reset/clean the lab target, run the golden bootstrap, capture `OMEGA GOLDEN REINSTALL VERIFY PASS`, record the generated router WireGuard public key, reconcile the lab CORE peer, and run the active phase verification.
+
+### 7. Ownership tests
 
 Create unrelated DHCP, DNS, firewall, NAT, bridge, or addressing objects before the relevant phase. zOS must preserve them. If they conflict with a zOS-managed contract, the phase must stop rather than silently delete or rewrite them.
 
-### 7. Update verification
+### 8. Update verification
 
 ~~~bash
 make update-check

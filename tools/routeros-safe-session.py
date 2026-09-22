@@ -182,90 +182,9 @@ def rollback(proc: subprocess.Popen[bytes], evidence) -> None:
 
 def main() -> int:
     args = parse_args()
-    # Fail closed: a remote SSH command cannot provide an interactive Safe Mode transaction.
-    # Do not run the command or report success until a verified interactive driver exists.
-    sys.stderr.write(
-        "Live apply blocked: RouterOS interactive Safe Mode is not implemented.\\n"
-    )
+    # Live apply remains disabled until CHR-backed interactive Safe Mode verification.
+    sys.stderr.write("Live apply blocked: interactive Safe Mode has not been verified.\\n")
     return 4
-    command = Path(args.command_file).read_text().rstrip("\n") + "\n"
-    output_path = Path(args.output_file)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    ssh_cmd = [
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "ConnectTimeout=8",
-        "-o",
-        "ServerAliveInterval=20",
-        "-o",
-        "ServerAliveCountMax=3",
-    ]
-    if args.identity:
-        ssh_cmd.extend(["-i", args.identity, "-o", "IdentitiesOnly=yes"])
-    ssh_cmd.extend([args.target, command])
-
-    proc = subprocess.Popen(
-        ssh_cmd,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        bufsize=0,
-    )
-
-    if proc.stdout is None:
-        raise SessionError("SSH stdout is unavailable")
-    selector = selectors.DefaultSelector()
-    selector.register(proc.stdout, selectors.EVENT_READ)
-    with output_path.open("wb") as evidence:
-        try:
-            buffer = bytearray()
-            deadline = time.monotonic() + args.transaction_timeout
-            while time.monotonic() < deadline:
-                events = selector.select(timeout=0.5)
-                if not events:
-                    if proc.poll() is not None:
-                        break
-                    continue
-                chunk = os.read(proc.stdout.fileno(), 4096)
-                if not chunk:
-                    if proc.poll() is not None:
-                        break
-                    continue
-                stream_chunk(chunk, evidence)
-                buffer.extend(chunk)
-                if b"OMEGA_APPLY_PASS" in buffer or b"OMEGA_PHASE_FAIL" in buffer:
-                    break
-
-            found_pass = b"OMEGA_APPLY_PASS" in buffer
-            found_fail = b"OMEGA_PHASE_FAIL" in buffer
-            if proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait(timeout=3)
-            if found_fail:
-                raise SessionError("RouterOS transaction reported OMEGA_PHASE_FAIL")
-            if not found_pass:
-                raise SessionError("RouterOS did not report OMEGA_APPLY_PASS")
-            return 0
-
-        except SessionError as exc:
-            sys.stderr.write(f"RouterOS session error: {exc}\n")
-            if proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait(timeout=3)
-            return 4
-        finally:
-            selector.close()
 
 
 if __name__ == "__main__":

@@ -21,6 +21,14 @@ Text exports are reviewable recovery inputs. Binary `.backup` files are sensitiv
 
 Each successful controller backup publishes `omega-policedbc-<timestamp-pid-random>.rsc/.backup` with `.sha256` sidecars and a `<id>.manifest.json` binding `backup_id/commit_sha/created_at/router_host/artifact checksums` (no secrets). Downloads stage as private `.part` files, require both artifacts nonempty, then publish atomically; partial/empty results never report success and never publish a manifest. Router temp files are cleaned best-effort only after the local verified copy exists, without masking the original error. Retention (`OMEGA_BACKUP_RETENTION_COUNT`, default 30) never deletes the only verified copy; `OMEGA_BACKUP_OFFHOST_DIR` holds an optional off-host copy. A backup file existing is not restore evidence — exercise `tools/restore-drill.sh` on disposable CHR before declaring recoverability.
 
+## Restore drill (disposable CHR only)
+
+~~~bash
+tools/restore-drill.sh --backup-id <omega-policedbc-...> --mock
+~~~
+
+The drill verifies manifest integrity, both SHA-256 checksums, provenance and password availability before any restore, refuses production targets via blocklist even with authorization, and requires `--allow-live-restore` plus `OMEGA_ALLOW_LIVE_RESTORE=1`, `OMEGA_CHR_ISOLATED=1`, `OMEGA_CHR_AUTHORIZED_BY=<operator>` and a proven SSH management path for live use. Mock mode records `MOCK PASS` with elapsed time and sanitized evidence under `artifacts/restore-drill/`; live CHR execution without a verified isolated target stays `BLOCKED` with no mutation. Never restore production from a backup without an independent recovery path and explicit approval.
+
 ## CORE route recovery
 
 Required state:

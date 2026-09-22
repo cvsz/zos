@@ -312,3 +312,22 @@ def test_never_quit_during_safe() -> None:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+def test_main_blocks_unprotected_ssh_apply(monkeypatch, tmp_path, capsys) -> None:
+    """An unverified remote-command SSH invocation must never be started."""
+    import argparse
+
+    monkeypatch.setattr(module, "parse_args", lambda: argparse.Namespace(
+        target="admin@192.0.2.1",
+        command_file=str(tmp_path / "commands.rsc"),
+        output_file=str(tmp_path / "evidence.log"),
+        identity=None,
+        prompt_timeout=1.0,
+        safe_timeout=1.0,
+        transaction_timeout=1.0,
+    ))
+    monkeypatch.setattr(module.subprocess, "Popen", lambda *args, **kwargs: pytest.fail(
+        "unsafe SSH process started"
+    ))
+    assert module.main() != 0
+    assert "Live apply blocked" in capsys.readouterr().err

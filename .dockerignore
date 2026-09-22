@@ -9,6 +9,7 @@ backups/**
 state
 state/**
 config/topology.env
+config/wifi-single-network.env
 cloudflare/config.env
 .env
 .env.*

@@ -41,7 +41,7 @@ CORE is runtime-ready when:
 
 ## Current live-apply blocker
 
-As of the reviewed repository state on 2026-09-22, PRs #61-#66 are merged and their required validation/build/security workflows passed. These results establish only the scope exercised by repository CI. The direct `apply` command is disabled and `tools/routeros-safe-session.py` returns a fail-closed error; `apply-safe` cannot deploy. This is intentional until the interactive driver has independent CHR evidence. Never treat `OMEGA_ALLOW_LIVE_APPLY=1` as an override.
+As of the reviewed repository state on 2026-09-22, PRs #61-#69 are merged and their required validation/build/security workflows passed. These results establish only the scope exercised by repository CI. The direct `apply` command is disabled and `tools/routeros-safe-session.py` returns a fail-closed error; `apply-safe` cannot deploy. This is intentional until the interactive driver has independent CHR evidence. Never treat `OMEGA_ALLOW_LIVE_APPLY=1` as an override.
 
 ## CHR-verified
 
@@ -53,9 +53,10 @@ As of the reviewed repository state on 2026-09-22, PRs #61-#66 are merged and th
 - backup restore and local recovery have been exercised.
 
 **Current Status**: **MOCK HARNESS COMPLETE, LIVE CHR BLOCKED**
-- `tools/chr-lab-harness.py`: 15 deterministic failure-injection scenarios (SSH, Safe Mode, timeout, disconnect, signal, concurrent, spoof, fragmentation, truncation, rollback, commit gate)
-- `docs/CHR-LAB-EVIDENCE.md`: evidence manifest template, test matrix with status
-- All live RouterOS integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03) marked **BLOCKED** — no isolated CHR available
+- `tools/chr-lab-harness.py`: 16 deterministic failure-injection scenarios (SSH-01..03, SM-01..13: Safe Mode, timeout, disconnect, signal, concurrent, spoof, fragmentation, truncation, rollback, commit gate), all `PASS (mock)`
+- `tools/test-backup-hardening.sh`: 28 mocked backup-lifecycle checks `PASS`; `tools/test-restore-drill.sh`: 9 mocked restore-gate checks `PASS`
+- `docs/CHR-LAB-EVIDENCE.md`: evidence manifest template, reconciled test matrix (16 mock `PASS`, 15 live `BLOCKED`)
+- All live RouterOS integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03 — 15 tests) marked **BLOCKED** — no isolated CHR available
 - Never fabricate CHR results; mark integration tests BLOCKED per AGENTS.md
 
 ## Router change-ready

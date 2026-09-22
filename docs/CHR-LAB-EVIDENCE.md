@@ -35,7 +35,7 @@ Each lab run produces a JSON manifest with the following structure:
   "summary": {
     "PASS": 0,
     "FAIL": 0,
-    "BLOCKED": 13,
+    "BLOCKED": 15,
     "SKIPPED": 0
   }
 }
@@ -92,6 +92,18 @@ python3 tools/chr-lab-harness.py
 ```
 
 Output: `artifacts/chr-lab/manifest-<run_id>.json`
+
+Current mock coverage: 16 deterministic scenarios (SSH-01..03, SM-01..13), all `PASS (mock)` via event-driven transport. Live matrix above holds 15 tests (`SM-01/02`, `DR-01..03`, `UP-01/02`, `BK-01/02`, `GR-01..03`, `OWN-01..03`), all `BLOCKED`.
+
+## Machine-readable evidence manifests (P0-5)
+
+Every lab/backup/restore run emits a JSON manifest with exact `commit_sha`, artifact `SHA-256` checksums, RouterOS version where known, CHR image provenance where applicable, test IDs, observed outcomes and ISO-8601 timestamps. Counts are derived from actual test records (never hand-written):
+
+- `artifacts/chr-lab/manifest-*.json` from `tools/chr-lab-harness.py` (16 mock `PASS`, 0 `FAIL`, 0 `BLOCKED` in mock mode; live matrix tracked separately as 15 `BLOCKED`);
+- `backups/omega-policedbc-*.manifest.json` from `tools/omega-router.sh backup` (`backup_id/commit_sha/created_at/artifact sha256/bytes`, no secrets);
+- `artifacts/restore-drill/manifest-*.json` from `tools/restore-drill.sh` (`MOCK PASS` with `elapsed_ms`, or `FAIL`/`BLOCKED`, sanitized).
+
+Status vocabulary is shared: `MOCK PASS` (deterministic mock), `CHR PASS`/`PASS (live)` (isolated CHR with sanitized evidence), `FAIL`, `BLOCKED`, `SKIPPED` (with reason). Never publish backup contents, credentials, complete sensitive exports or private keys.
 
 ## Safe CHR Provisioning Instructions (Future)
 

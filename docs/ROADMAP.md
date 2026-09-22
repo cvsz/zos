@@ -12,7 +12,8 @@ This roadmap describes intended work. It must not be read as evidence that an it
 ## Completed (Repository-Ready)
 
 - **Phase 1**: Safe Mode nonce-framed state machine with 28 regression tests (PR #67 merged)
-- **Phase 2**: CHR Lab Mock Harness with 15 failure-injection scenarios + evidence manifest
+- **Phase 2**: CHR Lab Mock Harness with 16 event-driven failure-injection scenarios + evidence manifest (PRs #68-#69 merged)
+- **Phase 3 (repo-safe)**: idempotent backup lifecycle (28 mocked checks), fail-closed restore drill (9 mocked checks), recovery runbooks, machine-readable evidence manifests, repo-security + read-only topology reconciliation — live CHR restore still BLOCKED
 
 ## Next
 
@@ -24,9 +25,9 @@ This roadmap describes intended work. It must not be read as evidence that an it
 
 ## Blocked (Require CHR Infrastructure + Operator Approval)
 
-- **Phase 2 Live**: CHR integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03)
-- **Phase 3**: Backup/restore drill on disposable CHR
-- **Phase 4**: Production topology reconciliation (read-only audit → mutation)
+- **Phase 2 Live**: CHR integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03 — 15 tests)
+- **Phase 3 Live**: backup/restore drill on disposable CHR (mock tooling complete, live execution BLOCKED)
+- **Phase 4**: Production topology reconciliation (read-only offline audit complete; live read-only audit → mutation still gated)
 - **Phase 5**: Security hardening (SSH ACL, WinBox, WireGuard AllowedIPs, firewall ownership)
 - **Phase 6**: Observability (health checks, metrics, alerts, evidence retention)
 - **Phase 7**: Documentation sync, release engineering, production acceptance report

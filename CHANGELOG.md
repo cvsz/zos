@@ -9,6 +9,12 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 - เพิ่ม `tools/test-restore-drill.sh` 9 เคส (mocked): happy-path MOCK PASS + elapsed + sanitized (no password), checksum mismatch/tamper fail-closed, missing password fail-closed, production target refused, live โดยไม่มี auth fail-closed, missing manifest fail-closed
 - ล็อก contract ใน `tools/validate-repo.sh`; live CHR restore verification ยัง **BLOCKED**
 
+### Management recovery, evidence, repo-security and topology (Phase 3 P0-4/P0-5/P1)
+- ขยาย `docs/DISASTER-RECOVERY.md` ด้วย recovery runbooks 9 สถานการณ์ (SSH auth, lockout, default route, LAN/DHCP, firewall, WireGuard, failed deploy/backup/restore, CHR interrupted restore) พร้อม independent access, rollback triggers, decision points, post-recovery verification
+- ปรับ `docs/CHR-LAB-EVIDENCE.md` ให้ reconcile จำนวนจริง (mock 16 PASS, live 15 BLOCKED) และนิยาม machine-readable manifests (`chr-lab`, `backups/*.manifest.json`, `restore-drill`) พร้อม `commit_sha/checksum/version/provenance/test ID/outcome/timestamp` และ vocabulary `MOCK PASS/CHR PASS/FAIL/BLOCKED/SKIPPED`
+- เพิ่ม `tools/test-repo-security.sh` 25 เคส (ignore/build-context/perm/secret-scan/cleanup/CI retention) และแก้ `.gitignore` เพิ่ม `*.backup.password`; เพิ่ม `tools/topology-reconcile.sh` แบบ read-only offline (ไม่แตะ production) พร้อมล็อกใน `make validate`
+- ซิงก์ `PRODUCTION-READINESS.md` (PRs #61-#69, mock 16, live 15 BLOCKED), `ROADMAP.md`, `EVIDENCE-MATRIX.md`, `RUNBOOK.md`, `TESTING.md`
+
 ### Backup lifecycle hardening - atomic publish, checksums, manifest (Phase 3 P0-2)
 - เขียนใหม่ `backup()` ใน `tools/omega-router.sh` แบบ idempotent: ตัวระบุไม่ซ้ำ (`timestamp-pid-random`), `umask 077` ก่อน `mkdir`, `chmod 700` dirs / `chmod 600` artifacts, staging ส่วนตัวผ่าน `mktemp -d` + ไฟล์ `.part`, ตรวจสอบ `nonempty` ทั้งสองไฟล์, คำนวณ `SHA-256`, เผยแพร่แบบ `atomic mv` แล้วจึงเขียน `.sha256` + `manifest.json` (ผูก `backup_id/commit_sha/created_at/router_host/sha256/bytes` โดยไม่รวม password/secret)
 - ส่ง RouterOS backup commands ทาง `stdin pipe` (`ssh_stdin`) แทน `ssh argv` เพื่อไม่ให้ password ปรากฏใน `ps/process output`; ปิด shell tracing (`set +x`) รอบ password handling และไม่ echo password ใน stdout/logs/errors; รองรับ `OMEGA_BACKUP_DIR` override สำหรับ test isolation, `OMEGA_BACKUP_RETENTION_COUNT` (default 30, ไม่ลบ copy เดียวที่เหลือ), `OMEGA_BACKUP_OFFHOST_DIR` (optional copy, warn ไม่ fail backup หลัก)

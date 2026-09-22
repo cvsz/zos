@@ -52,6 +52,12 @@ As of the reviewed repository state on 2026-09-22, PRs #61-#66 are merged and th
 - command echo and stale success markers cannot spoof acceptance;
 - backup restore and local recovery have been exercised.
 
+**Current Status**: **MOCK HARNESS COMPLETE, LIVE CHR BLOCKED**
+- `tools/chr-lab-harness.py`: 15 deterministic failure-injection scenarios (SSH, Safe Mode, timeout, disconnect, signal, concurrent, spoof, fragmentation, truncation, rollback, commit gate)
+- `docs/CHR-LAB-EVIDENCE.md`: evidence manifest template, test matrix with status
+- All live RouterOS integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03) marked **BLOCKED** — no isolated CHR available
+- Never fabricate CHR results; mark integration tests BLOCKED per AGENTS.md
+
 ## Router change-ready
 
 - current state audited;

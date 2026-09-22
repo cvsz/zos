@@ -374,40 +374,53 @@ def test_framed_markers_bind_nonce() -> None:
     """Pass/Fail marker ต้องผูก nonce; static marker เดี่ยวๆ ต้องไม่เท่ากับ pass."""
     nonce = module.generate_nonce()
     markers = module.build_framed_markers(nonce)
-    assert nonce in markers["pass"]
-    assert nonce in markers["fail"]
-    assert markers["pass"] != "OMEGA_APPLY_PASS"
-    assert "OMEGA_APPLY_PASS" not in markers["pass"].replace(nonce, "")
+    assert nonce in markers.pass_marker
+    assert nonce in markers.fail_marker
+    assert markers.pass_marker != "OMEGA_APPLY_PASS"
+    assert "OMEGA_APPLY_PASS" not in markers.pass_marker.replace(nonce, "")
 
 
 def test_classify_ignores_static_pass_echo() -> None:
     """Command echo ของ static OMEGA_APPLY_PASS ต้องไม่ถูกนับเป็น success."""
     nonce = module.generate_nonce()
     events = module.classify_output(b"] > OMEGA_APPLY_PASS\r\n", nonce)
-    assert events["pass_accepted"] is False
+    assert events.pass_accepted is False
 
 
 def test_classify_accepts_nonce_pass() -> None:
     """Pass marker ที่มี nonce ตรงกันเท่านั้นจึงยอมรับ."""
     nonce = module.generate_nonce()
     markers = module.build_framed_markers(nonce)
-    data = b"OMEGA_PHASE_FILE:00-PRECHECK.rsc\r\n" + markers["pass"].encode()
-    events = module.classify_output(data, nonce)
-    assert events["pass_accepted"] is True
-    assert events["phase_file"] is True
-    assert events["fail"] is False
+    data = b"OMEGA_PHASE_FILE:00-PRECHECK.rsc\r\n" + markers.pass_bytes
+    events = module.classify_output(data, nonce, after_our_write=True)
+    assert events.pass_accepted is True
+    assert events.phase_file is True
+    assert events.fail is False
+    assert events.trust_level == "trusted"
+
+
+def test_classify_rejects_nonce_pass_in_echo() -> None:
+    """Nonce-bearing PASS in command echo is NOT trusted."""
+    nonce = module.generate_nonce()
+    markers = module.build_framed_markers(nonce)
+    # Simulate command echo: we sent the marker, it appears in output
+    data = b"] > :put (\"OMEGA_APPLY_" + nonce.encode() + b"_PASS\")\r\n" + markers.pass_bytes
+    events = module.classify_output(data, nonce, after_our_write=False)
+    assert events.pass_accepted is True  # marker is present
+    assert events.trust_level == "untrusted"  # but not trusted
+    assert not events.is_successful_commit_signal()
 
 
 def test_classify_detects_fail_and_hijack() -> None:
     """Fail marker และ hijack prompt ต้องตรวจจับได้เพื่อสั่ง rollback."""
     nonce = module.generate_nonce()
     markers = module.build_framed_markers(nonce)
-    fail_events = module.classify_output(markers["fail"].encode(), nonce)
-    assert fail_events["fail"] is True
-    assert fail_events["pass_accepted"] is False
+    fail_events = module.classify_output(markers.fail_bytes, nonce)
+    assert fail_events.fail is True
+    assert fail_events.pass_accepted is False
     hijack_events = module.classify_output(
         b"Hijacking Safe Mode from someone else, release it? [y/N]:", nonce)
-    assert hijack_events["hijack"] is True
+    assert hijack_events.hijack is True
 
 
 def test_next_action_commits_only_on_full_success() -> None:
@@ -416,11 +429,17 @@ def test_next_action_commits_only_on_full_success() -> None:
     nonce = module.generate_nonce()
     markers = module.build_framed_markers(nonce)
     good = module.classify_output(
-        b"[Safe Mode taken]\r\n" + markers["pass"].encode(), nonce)
+        b"[Safe Mode taken]\r\nOMEGA_PHASE_FILE:00-PRECHECK.rsc\r\n" + markers.pass_bytes,
+        nonce,
+        after_our_write=True,
+    )
     assert module.next_action(states.SAFE_MODE_CONFIRMED, good, True) == "commit"
     assert module.next_action(states.SAFE_MODE_CONFIRMED, good, False) == "rollback"
     bad = module.classify_output(
-        markers["pass"].encode() + b"\r\nOMEGA_PHASE_FAIL\r\n", nonce)
+        b"OMEGA_PHASE_FILE:00-PRECHECK.rsc\r\n" + markers.pass_bytes + b"\r\nOMEGA_PHASE_FAIL\r\n",
+        nonce,
+        after_our_write=True,
+    )
     assert module.next_action(states.SAFE_MODE_CONFIRMED, bad, True) == "rollback"
     assert module.next_action(states.EXECUTING, good, True) == "rollback"
     assert module.next_action(states.UNKNOWN, good, True) == "rollback"
@@ -432,7 +451,7 @@ def test_next_action_never_hijacks() -> None:
     nonce = module.generate_nonce()
     events = module.classify_output(
         b"Safe Mode is taken by current user in another session.", nonce)
-    assert events["stale_session"] is True
+    assert events.stale_session is True
     assert module.next_action(states.CONNECTED, events, True) == "rollback"
 
 

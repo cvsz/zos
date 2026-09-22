@@ -9,6 +9,11 @@ This roadmap describes intended work. It must not be read as evidence that an it
 - maintain RouterOS production-safety gates and evidence checks;
 - maintain trusted self-hosted runner isolation.
 
+## Completed (Repository-Ready)
+
+- **Phase 1**: Safe Mode nonce-framed state machine with 28 regression tests (PR #67 merged)
+- **Phase 2**: CHR Lab Mock Harness with 15 failure-injection scenarios + evidence manifest
+
 ## Next
 
 - formalize release/version policy before 1.0;
@@ -16,6 +21,16 @@ This roadmap describes intended work. It must not be read as evidence that an it
 - maintain Dependabot, immutable Action pins, container digest pins, and vulnerability-scan policy;
 - expand sanitized failure-mode evidence for CORE/GitHub incidents;
 - verify and document actual PROD host addressing before enabling cross-environment automation.
+
+## Blocked (Require CHR Infrastructure + Operator Approval)
+
+- **Phase 2 Live**: CHR integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03)
+- **Phase 3**: Backup/restore drill on disposable CHR
+- **Phase 4**: Production topology reconciliation (read-only audit → mutation)
+- **Phase 5**: Security hardening (SSH ACL, WinBox, WireGuard AllowedIPs, firewall ownership)
+- **Phase 6**: Observability (health checks, metrics, alerts, evidence retention)
+- **Phase 7**: Documentation sync, release engineering, production acceptance report
+- **Phase 8**: Controlled production rollout (explicit approval + maintenance window)
 
 ## Later
 

@@ -61,3 +61,15 @@ The optional self-hosted runner probe remains validation-only.
 ## Failure interpretation
 
 A green CI run means its configured checks passed for that commit. It does not prove router connectivity, CORE route persistence, DNS, VPN, firewall/NAT, or PROD reachability.
+
+## CHR Lab Harness (Mock)
+
+Deterministic failure-injection tests without live RouterOS:
+
+~~~bash
+python3 tools/chr-lab-harness.py
+~~~
+
+Produces sanitized evidence manifest at `artifacts/chr-lab/manifest-<run_id>.json`.
+All live RouterOS integration tests remain **BLOCKED** until isolated CHR is available.
+See `docs/CHR-LAB-EVIDENCE.md` for test matrix and status.

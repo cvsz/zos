@@ -3,10 +3,10 @@
 
 /system resource print
 
-:if ([:len [/ip address find where address="192.168.1.1/24" and interface="DBC-Bridge-Local"]] != 1) do={
+:if ([/ip address print count-only where address="192.168.1.1/24" and interface="DBC-Bridge-Local"] != 1) do={
     :error "VERIFY FAIL: LAN gateway is not exactly present on DBC-Bridge-Local"
 }
-:if ([:len [/ip dhcp-client find where interface="ether1" and status="bound"]] != 1) do={
+:if ([/ip dhcp-client print count-only where interface="ether1" and status="bound"] != 1) do={
     :error "VERIFY FAIL: ether1 DHCP WAN is not uniquely bound"
 }
 :if ([:len [/ip route find where dst-address="0.0.0.0/0" and gateway="192.168.200.1"]] = 0) do={
@@ -16,7 +16,7 @@
 :local desiredRanges "192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254"
 :local desiredRangesStr "192.168.1.59-192.168.1.99;192.168.1.101-192.168.1.118;192.168.1.121;192.168.1.124-192.168.1.237;192.168.1.239-192.168.1.254"
 :local poolId [/ip pool find where name="lan-pool"]
-:if ([:len $poolId] != 1) do={ :error "VERIFY FAIL: lan-pool is not unique" }
+:if ([/ip pool print count-only where name="lan-pool"] != 1) do={ :error "VERIFY FAIL: lan-pool is not unique" }
 :local currentRanges [:tostr [/ip pool get $poolId ranges]]
 :if ($currentRanges != $desiredRangesStr) do={ :error ("VERIFY FAIL: lan-pool ranges do not match production contract: " . $currentRanges) }
 :local nextPool [/ip pool get $poolId next-pool]
@@ -46,12 +46,12 @@
     :local address [:pick $rest 0 [:find $rest "="]]
     :local comment [:pick $rest ([:find $rest "="] + 1) [:len $rest]]
     :local leaseId [/ip dhcp-server lease find where mac-address=$mac]
-    :if ([:len $leaseId] != 1) do={ :error ("VERIFY FAIL: lease is not unique for " . $comment) }
+    :if ([/ip dhcp-server lease print count-only where mac-address=$mac] != 1) do={ :error ("VERIFY FAIL: lease is not unique for " . $comment) }
     :if ([/ip dhcp-server lease get $leaseId address] != $address) do={ :error ("VERIFY FAIL: reservation mismatch for " . $comment) }
 }
 
-:if ([:len [/interface wireguard find where name="wg-remote"]] != 1) do={ :error "VERIFY FAIL: wg-remote is not unique" }
-:if ([:len [/ip address find where address="10.8.0.1/24" and interface="wg-remote"]] != 1) do={ :error "VERIFY FAIL: WireGuard gateway address missing" }
+:if ([/interface wireguard print count-only where name="wg-remote"] != 1) do={ :error "VERIFY FAIL: wg-remote is not unique" }
+:if ([/ip address print count-only where address="10.8.0.1/24" and interface="wg-remote"] != 1) do={ :error "VERIFY FAIL: WireGuard gateway address missing" }
 
 :local upstreamReplies [/ping 192.168.200.1 count=3]
 :if ($upstreamReplies < 1) do={ :error "VERIFY FAIL: upstream gateway unreachable" }

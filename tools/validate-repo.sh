@@ -142,6 +142,9 @@ grep -Fq "cmd=':do {'" tools/omega-router.sh || err 'Safe Mode apply must wrap a
 grep -Fq 'OMEGA_PHASE_\" . \"FILE:' tools/omega-router.sh || err 'Safe Mode apply must identify the failing phase file'
 grep -Fq ":local currentRanges [:tostr [/ip pool get \$poolId ranges]]" 30-DHCP-DNS-NTP.rsc || err 'DHCP pool comparison must normalize RouterOS ranges to string'
 grep -Fq 'legacyRangesStr' 30-DHCP-DNS-NTP.rsc || err 'DHCP pool contract must use semicolon-joined ranges for :tostr comparison'
+grep -Fq "[:toip \$address]" 30-DHCP-DNS-NTP.rsc || err 'DHCP lease loop must compare address filters as ip type (:toip)'
+if grep -RInE "\[:len \\\$(netIds|managedDhcpId|poolId|leaseId|forwardJump|srcnatJump|wgIds|wgAddressIds|peerIds)\] *(> 1|!= 1)" --include='*.rsc' .; then err 'phases must not use :len on RouterOS find IDs for uniqueness (use print count-only)'; fi
+if grep -RInE '^[[:space:]]*:onerror' --include='*.rsc' .; then err 'phases must not use :onerror inside if/else (it breaks block parsing; use :do/on-error)'; fi
 grep -Fq ":local currentRanges [:tostr [/ip pool get \$poolId ranges]]" 99-VERIFY-HEALTH.rsc || err 'DHCP pool verification must normalize RouterOS ranges to string'
 grep -Fq '/quit' tools/omega-router.sh || err 'Safe Mode apply success path must explicitly release the session'
 grep -Fq 'fingerprint) fingerprint' tools/omega-router.sh || err 'dry-run binding requires router fingerprint support'
@@ -151,7 +154,7 @@ grep -Fq 'production Safe Mode enforcement cannot be disabled' tools/deploy-phas
 grep -Fq 'OMEGA VERIFY PASS' 99-VERIFY-HEALTH.rsc || err 'health phase must provide an assertion success sentinel'
 grep -Fq 'lan-pool ranges do not match production contract' 99-VERIFY-HEALTH.rsc || err 'health phase must assert the DHCP pool contract'
 grep -Fq 'lan-pool has unverified next-pool=' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must fail closed on unverified next-pool drift'
-grep -Fq 'lan-pool range migration failed:' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must surface RouterOS pool migration errors'
+grep -Fq 'doPoolMigrate' 30-DHCP-DNS-NTP.rsc || err 'DHCP pool migration must set pool outside if/else (nested blocks corrupt branch parsing)'
 grep -Fq 'lan-pool has unexpected next-pool=' 99-VERIFY-HEALTH.rsc || err 'health phase must assert no fallback DHCP pool'
 
 # Guarded one-shot legacy DHCP quarantine migration.

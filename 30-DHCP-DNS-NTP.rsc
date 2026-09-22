@@ -27,17 +27,20 @@
         :error ("lan-pool has unverified next-pool=" . $currentNextPool . "; inspect /ip pool print detail and clear/approve the fallback before migration")
     }
 
+    :local doPoolMigrate false
     :if ($currentRanges = $legacyRangesStr) do={
-        :onerror poolError in={
-            /ip pool set $poolId ranges=$desiredRanges
-        } do={
-            :error ("lan-pool range migration failed: " . $poolError)
-        }
-        :log warning "OMEGA: migrated lan-pool to reserve EnGenius .50-.58 and all fixed infrastructure"
+        :set doPoolMigrate true
     } else={
         :if ($currentRanges != $desiredRangesStr) do={
             :error "lan-pool exists with ranges outside the verified/legacy contracts; refusing takeover"
         }
+    }
+    # Pool set runs outside if/else: nested :do blocks corrupt the outer
+    # branch parsing on RouterOS 7.25beta4 (both branches fire). A bare
+    # failing set aborts to the Safe Mode transaction handler (fail-closed).
+    :if ($doPoolMigrate = true) do={
+        /ip pool set $poolId ranges=$desiredRanges
+        :log warning "OMEGA: migrated lan-pool to reserve EnGenius .50-.58 and all fixed infrastructure"
     }
 }
 
@@ -52,7 +55,7 @@
 }
 
 :local netIds [/ip dhcp-server network find where address="192.168.1.0/24"]
-:if ([:len $netIds] > 1) do={ :error "LAN DHCP network is duplicated; refusing ambiguous rewrite" }
+:if ([/ip dhcp-server network print count-only where address="192.168.1.0/24"] > 1) do={ :error "LAN DHCP network is duplicated; refusing ambiguous rewrite" }
 :if ([:len $netIds] = 0) do={
     /ip dhcp-server network add address=192.168.1.0/24 gateway=192.168.1.1 dns-server=192.168.1.1 comment="OMEGA-MANAGED"
 } else={
@@ -82,7 +85,7 @@
 }
 
 :local managedDhcpId [/ip dhcp-server find where name="lan-dhcp"]
-:if ([:len $managedDhcpId] != 1) do={ :error "lan-dhcp must resolve to exactly one DHCP server" }
+:if ([/ip dhcp-server print count-only where name="lan-dhcp"] != 1) do={ :error "lan-dhcp must resolve to exactly one DHCP server" }
 
 :foreach item in=$fixedHosts do={
     :local mac [:pick $item 0 [:find $item "="]]
@@ -90,14 +93,18 @@
     :local address [:pick $rest 0 [:find $rest "="]]
     :local comment [:pick $rest ([:find $rest "="] + 1) [:len $rest]]
     :local isEngenius ([:pick $mac 0 8] = "88:DC:96")
+    # Loop var must not share a name with the filtered property ($address
+    # resolves ambiguously in where clauses and matches everything on
+    # RouterOS 7.25beta4, verified live); compare the ip-typed value instead.
+    :local addressIp [:toip $address]
 
     :set leaseId [/ip dhcp-server lease find where mac-address=$mac]
-    :if ([:len $leaseId] > 1) do={
+    :if ([/ip dhcp-server lease print count-only where mac-address=$mac] > 1) do={
         :error ("multiple DHCP leases exist for MAC " . $mac . "; refusing ambiguous rewrite")
     }
 
     :if ([:len $leaseId] = 0) do={
-        :if ([:len [/ip dhcp-server lease find where address=$address]] > 0) do={
+        :if ([/ip dhcp-server lease print count-only where address=$addressIp] > 0) do={
             :error ("" . $address . " is occupied by another DHCP lease; refusing to take over for " . $comment)
         }
         /ip dhcp-server lease add server=lan-dhcp address=$address mac-address=$mac comment=$comment
@@ -110,7 +117,7 @@
             :if ($isEngenius != true) do={
                 :error ("MAC " . $mac . " has a different lease; refusing rewrite for " . $comment)
             }
-            :if ([:len [/ip dhcp-server lease find where address=$address and mac-address!=$mac]] > 0) do={
+            :if ([/ip dhcp-server lease print count-only where address=$addressIp and mac-address!=$mac] > 0) do={
                 :error ("" . $address . " is occupied by another DHCP lease; refusing EnGenius migration for " . $comment)
             }
 
@@ -152,15 +159,17 @@
     "wifi.zeaz.dev=192.168.1.238"
 }
 :foreach item in=$dnsRecords do={
-    :local name [:pick $item 0 [:find $item "="]]
-    :local address [:pick $item ([:find $item "="] + 1) [:len $item]]
-    :local dnsIds [/ip dns static find where name=$name]
-    :if ([:len $dnsIds] > 1) do={ :error ("duplicate static DNS records for " . $name . "; refusing ambiguous rewrite") }
+    # Loop vars must not share names with filtered properties ($name/$address
+    # resolve ambiguously in where clauses and match everything on 7.25beta4).
+    :local dnsName [:pick $item 0 [:find $item "="]]
+    :local dnsAddress [:pick $item ([:find $item "="] + 1) [:len $item]]
+    :local dnsIds [/ip dns static find where name=$dnsName]
+    :if ([/ip dns static print count-only where name=$dnsName] > 1) do={ :error ("duplicate static DNS records for " . $dnsName . "; refusing ambiguous rewrite") }
     :if ([:len $dnsIds] = 0) do={
-        /ip dns static add name=$name address=$address ttl=1d comment="OMEGA-MANAGED local DNS"
+        /ip dns static add name=$dnsName address=$dnsAddress ttl=1d comment="OMEGA-MANAGED local DNS"
     } else={
         :local dnsId $dnsIds
-        :if ([/ip dns static get $dnsId address] != $address) do={ :error ($name . " DNS conflicts with verified address") }
+        :if ([/ip dns static get $dnsId address] != $dnsAddress) do={ :error ($dnsName . " DNS conflicts with verified address") }
     }
 }
 

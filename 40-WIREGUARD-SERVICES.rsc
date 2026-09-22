@@ -1,7 +1,7 @@
 :log warning "OMEGA WIREGUARD SERVICES START"
 
 :local wgIds [/interface wireguard find where name="wg-remote"]
-:if ([:len $wgIds] > 1) do={ :error "wg-remote is duplicated; refusing ambiguous rewrite" }
+:if ([/interface wireguard print count-only where name="wg-remote"] > 1) do={ :error "wg-remote is duplicated; refusing ambiguous rewrite" }
 :if ([:len $wgIds] = 0) do={
     /interface wireguard add name=wg-remote listen-port=51820 mtu=1420 comment="PoliceDBC: VPN"
 } else={
@@ -14,7 +14,7 @@
 }
 
 :local wgAddressIds [/ip address find where address="10.8.0.1/24"]
-:if ([:len $wgAddressIds] > 1) do={ :error "10.8.0.1/24 is duplicated; refusing ambiguous rewrite" }
+:if ([/ip address print count-only where address="10.8.0.1/24"] > 1) do={ :error "10.8.0.1/24 is duplicated; refusing ambiguous rewrite" }
 :if ([:len $wgAddressIds] = 0) do={
     /ip address add address=10.8.0.1/24 interface=wg-remote comment="PoliceDBC: VPN GATEWAY"
 } else={
@@ -27,7 +27,7 @@
 }
 
 :local peerIds [/interface wireguard peers find where interface="wg-remote" and allowed-address="10.8.0.2/32"]
-:if ([:len $peerIds] > 1) do={ :error "CORE WireGuard peer is duplicated; refusing ambiguous rewrite" }
+:if ([/interface wireguard peers print count-only where interface="wg-remote" and allowed-address="10.8.0.2/32"] > 1) do={ :error "CORE WireGuard peer is duplicated; refusing ambiguous rewrite" }
 :if ([:len $peerIds] = 0) do={
     /interface wireguard peers add interface=wg-remote public-key="HPe+0n/v9HL+0DtcvhNg+GnHwdkgDZertP5NHdZNwW8=" allowed-address=10.8.0.2/32 comment="core.zeaz.dev"
 } else={

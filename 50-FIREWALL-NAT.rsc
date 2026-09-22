@@ -15,7 +15,7 @@
     :if ([:len [/ip firewall filter find where chain="forward" and jump-target="ZEAZ-PoliceDBC-FORWARD"]] > 0) do={ :error "forward already jumps to ZEAZ-PoliceDBC-FORWARD without zOS ownership" }
     /ip firewall filter add chain=forward action=jump jump-target=ZEAZ-PoliceDBC-FORWARD place-before=0 comment="ZEAZ-PoliceDBC: FORWARD POLICY"
 } else={
-    :if ([:len $forwardJump] > 1) do={ :error "owned forward policy jump is duplicated" }
+    :if ([/ip firewall filter print count-only where chain="forward" and jump-target="ZEAZ-PoliceDBC-FORWARD" and comment="ZEAZ-PoliceDBC: FORWARD POLICY"] > 1) do={ :error "owned forward policy jump is duplicated" }
     :if ([/ip firewall filter get $forwardJump disabled] = true) do={ :error "owned forward policy jump is disabled; refusing silent policy bypass" }
 }
 
@@ -54,7 +54,7 @@ add chain=ZEAZ-PoliceDBC-FORWARD action=drop comment="PoliceDBC: FORWARD DEFAULT
     :if ([:len [/ip firewall nat find where chain="srcnat" and jump-target="ZEAZ-PoliceDBC-SRCNAT"]] > 0) do={ :error "srcnat already jumps to ZEAZ-PoliceDBC-SRCNAT without zOS ownership" }
     /ip firewall nat add chain=srcnat action=jump jump-target=ZEAZ-PoliceDBC-SRCNAT place-before=0 comment="ZEAZ-PoliceDBC: SRCNAT POLICY"
 } else={
-    :if ([:len $srcnatJump] > 1) do={ :error "owned srcnat policy jump is duplicated" }
+    :if ([/ip firewall nat print count-only where chain="srcnat" and jump-target="ZEAZ-PoliceDBC-SRCNAT" and comment="ZEAZ-PoliceDBC: SRCNAT POLICY"] > 1) do={ :error "owned srcnat policy jump is duplicated" }
     :if ([/ip firewall nat get $srcnatJump disabled] = true) do={ :error "owned srcnat policy jump is disabled; refusing silent NAT bypass" }
 }
 /ip firewall nat

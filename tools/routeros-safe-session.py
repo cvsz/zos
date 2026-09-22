@@ -183,7 +183,7 @@ def rollback(proc: subprocess.Popen[bytes], evidence) -> None:
 def main() -> int:
     args = parse_args()
     # Live apply remains disabled until CHR-backed interactive Safe Mode verification.
-    sys.stderr.write("Live apply blocked: interactive Safe Mode has not been verified.\\n")
+    sys.stderr.write("Live apply blocked: interactive Safe Mode has not been verified.\n")
     return 4
 
 

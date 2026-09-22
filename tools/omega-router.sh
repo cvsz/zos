@@ -26,7 +26,7 @@ Commands:
   backup                    Export + encrypted binary backup, then clean router file store
   upload <file.rsc>         Upload an RSC only
   dry-run <file.rsc>        Upload a unique temporary RSC, dry-run import, then remove it
-  apply <file.rsc>          Apply only when OMEGA_ALLOW_LIVE_APPLY=1
+  apply <file.rsc>          Disabled: unsafe non-transactional apply
   apply-safe <files...>     Apply all files in one interactive RouterOS Safe Mode session
   verify                    Run read-only post-change verification
   fingerprint               Print stable target/config fingerprint for dry-run binding
@@ -117,14 +117,8 @@ dry_run() {
 }
 
 apply_file() {
-  local file="$1" remote
-  [[ "${OMEGA_ALLOW_LIVE_APPLY:-0}" == "1" ]] || {
-    echo "Live apply blocked. Set OMEGA_ALLOW_LIVE_APPLY=1 only after backup, dry-run and Safe Mode." >&2
-    exit 3
-  }
-  remote="$(basename "$file")"
-  upload "$file"
-  ssh_mt "/import file-name=$remote verbose=yes"
+  echo 'Unsafe direct apply is disabled. Use audited backup, dry-run and a CHR-verified interactive Safe Mode driver.' >&2
+  return 4
 }
 
 apply_safe() {

@@ -4,6 +4,11 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Restore drill for disposable CHR with fail-closed gates (Phase 3 P0-3)
+- เพิ่ม `tools/restore-drill.sh`: ตรวจ `manifest integrity`, `SHA-256` ทั้งสองไฟล์, `provenance` (`backup_id/commit`), `password availability` (เฉพาะ existence/format ไม่พิมพ์ secret) ก่อน restore ใดๆ; ปฏิเสธ production blocklist (`192.168.1.1/.122/.123`, `core/prod.zeaz.dev`) แม้มี authorization; live ต้องมี `--allow-live-restore` + `OMEGA_ALLOW_LIVE_RESTORE=1` + `OMEGA_CHR_ISOLATED=1` + `OMEGA_CHR_AUTHORIZED_BY` + พิสูจน์ SSH management path ก่อน; `--mock` ผลิต `MOCK PASS` evidence พร้อม `elapsed_ms` โดยไม่แตะ network; live ที่ยังไม่มี CHR execution path คืน `BLOCKED` โดยไม่ mutate
+- เพิ่ม `tools/test-restore-drill.sh` 9 เคส (mocked): happy-path MOCK PASS + elapsed + sanitized (no password), checksum mismatch/tamper fail-closed, missing password fail-closed, production target refused, live โดยไม่มี auth fail-closed, missing manifest fail-closed
+- ล็อก contract ใน `tools/validate-repo.sh`; live CHR restore verification ยัง **BLOCKED**
+
 ### Backup lifecycle hardening - atomic publish, checksums, manifest (Phase 3 P0-2)
 - เขียนใหม่ `backup()` ใน `tools/omega-router.sh` แบบ idempotent: ตัวระบุไม่ซ้ำ (`timestamp-pid-random`), `umask 077` ก่อน `mkdir`, `chmod 700` dirs / `chmod 600` artifacts, staging ส่วนตัวผ่าน `mktemp -d` + ไฟล์ `.part`, ตรวจสอบ `nonempty` ทั้งสองไฟล์, คำนวณ `SHA-256`, เผยแพร่แบบ `atomic mv` แล้วจึงเขียน `.sha256` + `manifest.json` (ผูก `backup_id/commit_sha/created_at/router_host/sha256/bytes` โดยไม่รวม password/secret)
 - ส่ง RouterOS backup commands ทาง `stdin pipe` (`ssh_stdin`) แทน `ssh argv` เพื่อไม่ให้ password ปรากฏใน `ps/process output`; ปิด shell tracing (`set +x`) รอบ password handling และไม่ echo password ใน stdout/logs/errors; รองรับ `OMEGA_BACKUP_DIR` override สำหรับ test isolation, `OMEGA_BACKUP_RETENTION_COUNT` (default 30, ไม่ลบ copy เดียวที่เหลือ), `OMEGA_BACKUP_OFFHOST_DIR` (optional copy, warn ไม่ fail backup หลัก)

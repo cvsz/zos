@@ -4,6 +4,13 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Golden RB4011 rebuild synchronized with current production contract
+- Refresh `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` for the current single-LAN `192.168.1.0/24` production baseline and RouterOS 7.25beta4 live behavior.
+- Fail fast on non-clean IP pool, DHCP, WireGuard, firewall/NAT, legacy `.0/.10`, or conflicting LAN-gateway state before the first mutation.
+- Converge the current DHCP pool, fixed infrastructure including EWS1200D/EWS310AP `.50-.58`, local DNS, Bangkok timezone/NTP, WireGuard, firewall/NAT, management-service hardening, and observability baseline.
+- Print the regenerated router WireGuard public key for CORE reconciliation without storing private key material in Git.
+- Add fail-closed post-rebuild assertions and `OMEGA GOLDEN REINSTALL VERIFY PASS`, plus repository/lab/DR validation for the new contract.
+
 ### DHCP pool normalization and phase diagnostics
 - Normalize RouterOS `/ip pool get ... ranges` values with `:tostr` before comparing them with the verified legacy/desired contracts (`:tostr` joins with semicolons on RouterOS 7.25beta4, verified live).
 - Represent the single dynamic address `192.168.1.121` canonically instead of as a degenerate start/end range.

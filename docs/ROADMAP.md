@@ -13,7 +13,9 @@ This roadmap describes intended work. It must not be read as evidence that an it
 
 - **Phase 1**: Safe Mode nonce-framed state machine with 28 regression tests (PR #67 merged)
 - **Phase 2**: CHR Lab Mock Harness with 16 event-driven failure-injection scenarios + evidence manifest (PRs #68-#69 merged)
-- **Phase 3 (repo-safe)**: idempotent backup lifecycle (28 mocked checks), fail-closed restore drill (9 mocked checks), recovery runbooks, machine-readable evidence manifests, repo-security + read-only topology reconciliation — live CHR restore still BLOCKED
+- **Phase 3 (repo-safe)**: idempotent backup lifecycle (28 mocked checks), fail-closed restore drill (9 mocked checks), recovery runbooks, machine-readable evidence manifests, repo-security (35 checks) + read-only topology reconciliation with JSON drift fixtures (21 checks) — live CHR restore still BLOCKED
+- **Phase 4 (repo-safe)**: offline snapshot-vs-contract drift report (`--snapshot/--report`, LAN/WAN/DHCP/ARP/WireGuard/firewall/management/CORE/NTP/DNS); live read-only audit gated and fail-closed
+- **Phase 5 (repo-safe)**: CI least-privilege audit, host-key trust, log redaction, retention/evidence checks (offline); no production monitoring integrations
 
 ## Next
 

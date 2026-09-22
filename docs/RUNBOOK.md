@@ -85,6 +85,14 @@ tools/restore-drill.sh --backup-id <omega-policedbc-...> --mock
 bash tools/topology-reconcile.sh
 ~~~
 
+For a structured drift report from a sanitized snapshot (no production access):
+
+~~~bash
+tools/topology-reconcile.sh --snapshot <file> [--report <file>]
+~~~
+
+Live `--live` collection stays disabled unless `OMEGA_ALLOW_LIVE_AUDIT=1` with operator authorization, and it refuses production targets.
+
 ## 6. Dry-run intended phases
 
 ~~~bash

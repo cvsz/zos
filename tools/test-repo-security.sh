@@ -53,6 +53,41 @@ for needle in 'retention-days: 30' 'severity: HIGH,CRITICAL' 'format: cyclonedx'
   if grep -Fq "$needle" "$ROOT/.github/workflows/security-scan.yml"; then ok "SEC-CI covers $needle"; else bad "SEC-CI missing $needle"; fi
 done
 
+# SEC-CI-02: every workflow must declare least-privilege permissions
+for wf in "$ROOT"/.github/workflows/*.yml; do
+  _base="$(basename "$wf")"
+  if grep -Eq '^permissions:' "$wf" && grep -Eq '^  contents: read' "$wf"; then
+    ok "SEC-CI least-privilege permissions in $_base"
+  else
+    bad "SEC-CI $_base missing permissions/contents-read"
+  fi
+done
+
+# SEC-SSH-01: host-key trust must never be downgraded (no StrictHostKeyChecking=no)
+# shellcheck disable=SC2016
+if grep -RInE --include='*.sh' --exclude='test-repo-security.sh' 'StrictHostKeyChecking\s*=\s*no|StrictHostKeyChecking\s+no' "$ROOT/tools" "$ROOT/core" 2>/dev/null | grep -q .; then
+  bad "SEC-SSH host-key verification downgraded somewhere"
+else
+  ok "SEC-SSH host-key verification never disabled (BatchMode fails closed)"
+fi
+
+# SEC-LOG-01: backup/restore code must not echo secret values to logs
+# shellcheck disable=SC2016
+if grep -nE 'echo[^|]*\$password[^_]' "$ROOT/tools/omega-router.sh" "$ROOT/tools/restore-drill.sh" 2>/dev/null | grep -vq 'password_file\|password saved\|password availability\|password unavailable\|password format\|password travels\|password handling'; then
+  bad "SEC-LOG possible password value in log output"
+else
+  ok "SEC-LOG no password values in log output (paths/mentions only)"
+fi
+
+# SEC-RET-01: backup retention and recovery evidence paths must exist in code
+for needle in 'OMEGA_BACKUP_RETENTION_COUNT' 'manifest.json' 'artifacts/restore-drill'; do
+  if grep -Fq "$needle" "$ROOT/tools/omega-router.sh" "$ROOT/tools/restore-drill.sh" 2>/dev/null; then
+    ok "SEC-RET covers $needle"
+  else
+    bad "SEC-RET missing $needle"
+  fi
+done
+
 echo "---"
 echo "repo-security regression: PASS=$PASS FAIL=$FAIL"
 [[ "$FAIL" -eq 0 ]]

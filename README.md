@@ -87,6 +87,10 @@ make e2e
 
 Automatic RouterOS installation is separately double-gated by `OMEGA_AUTO_ROUTEROS_UPDATE=1` and `OMEGA_ALLOW_ROUTER_REBOOT=1`.
 
+Mock verification without live infrastructure: `python3 tools/chr-lab-harness.py` (16 scenarios), `python3 tools/test-chr-lab-harness-regression.py` (9 tests), `bash tools/test-backup-hardening.sh` (28 checks), `bash tools/test-restore-drill.sh` (9 checks), `bash tools/test-repo-security.sh` (35 checks), `bash tools/test-topology-reconcile.sh` (21 checks). See [`docs/TESTING.md`](docs/TESTING.md).
+
+Current readiness: **REPOSITORY READY + MOCK VERIFIED**; **CHR VERIFIED**, **ROUTER CHANGE READY** and **PRODUCTION ACCEPTED** remain unclaimed pending isolated-CHR evidence and operator approval (see [`docs/PRODUCTION-READINESS.md`](docs/PRODUCTION-READINESS.md)).
+
 ## Documentation map
 
 Start at `docs/INDEX.md`. Key documents include `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/INSTALLATION.md`, `docs/RUNBOOK.md`, `docs/NETWORK-RECOVERY.md`, `docs/SSH-HARDENING.md`, `docs/PRODUCTION-READINESS.md`, `docs/GITHUB-OPERATIONS.md`, `docs/TESTING.md`, `docs/RELEASES.md`, `docs/DISASTER-RECOVERY.md`, and `docs/OPENCODE-MASTER-PROMPT.md`.

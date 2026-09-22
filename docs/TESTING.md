@@ -70,9 +70,19 @@ Deterministic failure-injection tests without live RouterOS:
 python3 tools/chr-lab-harness.py
 ~~~
 
-Produces sanitized evidence manifest at `artifacts/chr-lab/manifest-<run_id>.json`.
-All live RouterOS integration tests remain **BLOCKED** until isolated CHR is available.
+Produces sanitized evidence manifest at `artifacts/chr-lab/manifest-<run_id>.json` (16 scenarios, all mock `PASS`).
+All live RouterOS integration tests (15 tests) remain **BLOCKED** until isolated CHR is available.
 See `docs/CHR-LAB-EVIDENCE.md` for test matrix and status.
+
+## Harness Regression Suite
+
+Event-driven failure-injection verification (no live RouterOS, Python 3.14 compatible):
+
+~~~bash
+python3 tools/test-chr-lab-harness-regression.py
+~~~
+
+Covers 9 tests proving each failure path is exercised through `transport.read()`/`write()` and detected (connection/auth/prompt timeout, Safe Mode refusal, hijack, static/stale spoof rejection, disconnect, commit gate). Wired into `make validate` via `tools/validate-repo.sh`.
 
 ## Backup Hardening (Mock, No Live Router)
 
@@ -94,3 +104,20 @@ tools/restore-drill.sh --backup-id <id> --mock
 ~~~
 
 Covers 9 checks: mock `MOCK PASS` with elapsed time and sanitized evidence, checksum/provenance/password gates, production-target refusal, live-without-authorization refusal. Live CHR restore stays `BLOCKED` until an isolated disposable target is authorized.
+
+## Repository Security (No Live Infrastructure)
+
+~~~bash
+bash tools/test-repo-security.sh
+~~~
+
+Covers 35 checks: `.gitignore`/`.dockerignore` exclusions, script permissions, committed-secret scan, unsafe-cleanup patterns, retention guards, CI least-privilege permissions, SSH host-key trust, log redaction, retention/evidence paths. Wired into `make validate`.
+
+## Topology Reconciliation (Offline Fixtures, No Production Access)
+
+~~~bash
+bash tools/test-topology-reconcile.sh
+tools/topology-reconcile.sh --snapshot <file> [--report <file>]
+~~~
+
+Compares sanitized snapshots against the repository contract and emits a JSON drift report (`severity/expected/observed/evidence`, counts derived from records). Covers 21 checks: WAN/default-route, bridge/VLAN, LAN identity, DHCP pools/overlap, leases, EnGenius reservations, ARP, WireGuard `AllowedIPs`, firewall ownership, management exposure, CORE invariants, NTP/DNS observability. Live `--live` collection requires `OMEGA_ALLOW_LIVE_AUDIT=1` plus operator authorization and refuses production targets; without gates it exits fail-closed without network use.

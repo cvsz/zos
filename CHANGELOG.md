@@ -4,6 +4,11 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Topology drift report, security hardening and observability fixtures (Phase 4/5 repo-safe)
+- ขยาย `tools/topology-reconcile.sh` เป็น JSON drift report (`--snapshot/--report`: severity/expected/observed/evidence, counts จาก records): WAN/default-route, bridge/VLAN, LAN identity, DHCP pool/overlap, leases, EnGenius reservations, ARP, WireGuard `AllowedIPs`, firewall ownership, management exposure, CORE invariants, NTP/DNS observability; live `--live` ต้องมี `OMEGA_ALLOW_LIVE_AUDIT=1` + operator authorization และปฏิเสธ production targets (ไม่มี gates จะ fail-closed exit 3 ไม่แตะ network)
+- เพิ่ม `tools/test-topology-reconcile.sh` 21 เคส + fixtures (`evidence/fixtures/topology/clean|drifted.snapshot`); ขยาย `tools/test-repo-security.sh` เป็น 35 เคส (CI least-privilege ทุก workflow, SSH host-key trust, log redaction, retention/evidence)
+- ซิงก์ `README.md`, `TESTING.md`, `EVIDENCE-MATRIX.md`, `ROADMAP.md`, `PRODUCTION-READINESS.md`, `RUNBOOK.md`; ระดับ readiness ปัจจุบัน: REPOSITORY READY + MOCK VERIFIED; CHR VERIFIED / ROUTER CHANGE READY / PRODUCTION ACCEPTED ยังไม่ claim
+
 ### CHR lab harness regression suite - Python 3.14 compatibility (Phase B)
 - แก้ `tools/test-chr-lab-harness-regression.py` ที่ crash ด้วย `AttributeError` บน Python 3.14: ลงทะเบียน dynamically loaded modules ใน `sys.modules` ก่อน `exec_module` (จำเป็นสำหรับ `@dataclass` processing)
 - เขียนชุดทดสอบใหม่ 9 เคสให้ใช้ event-driven API ปัจจุบัน (`run_event_driven_test`, `expected_action`/`expected_conditions`) แทน `run_scenario_test`/`expected` ที่ไม่มีอยู่แล้ว; ทุกเคส assert ว่า failure condition ถูก exercise และ detect จริงผ่าน `transport.read()`/`write()` (connection/auth/prompt timeout, Safe Mode refusal, hijack, static/stale spoof rejection, disconnect, commit gate)

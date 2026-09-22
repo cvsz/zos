@@ -54,7 +54,9 @@ As of the reviewed repository state on 2026-09-22, PRs #61-#69 are merged and th
 
 **Current Status**: **MOCK HARNESS COMPLETE, LIVE CHR BLOCKED**
 - `tools/chr-lab-harness.py`: 16 deterministic failure-injection scenarios (SSH-01..03, SM-01..13: Safe Mode, timeout, disconnect, signal, concurrent, spoof, fragmentation, truncation, rollback, commit gate), all `PASS (mock)`
+- `tools/test-chr-lab-harness-regression.py`: 9 event-driven failure-path verifications `PASS` (direct + pytest, Python 3.14)
 - `tools/test-backup-hardening.sh`: 28 mocked backup-lifecycle checks `PASS`; `tools/test-restore-drill.sh`: 9 mocked restore-gate checks `PASS`
+- `tools/test-repo-security.sh`: 35 checks `PASS`; `tools/test-topology-reconcile.sh`: 21 checks `PASS` (offline fixtures only)
 - `docs/CHR-LAB-EVIDENCE.md`: evidence manifest template, reconciled test matrix (16 mock `PASS`, 15 live `BLOCKED`)
 - All live RouterOS integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03 — 15 tests) marked **BLOCKED** — no isolated CHR available
 - Never fabricate CHR results; mark integration tests BLOCKED per AGENTS.md

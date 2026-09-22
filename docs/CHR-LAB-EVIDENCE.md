@@ -95,6 +95,8 @@ Output: `artifacts/chr-lab/manifest-<run_id>.json`
 
 Current mock coverage: 16 deterministic scenarios (SSH-01..03, SM-01..13), all `PASS (mock)` via event-driven transport. Live matrix above holds 15 tests (`SM-01/02`, `DR-01..03`, `UP-01/02`, `BK-01/02`, `GR-01..03`, `OWN-01..03`), all `BLOCKED`.
 
+The 9-test regression suite (`tools/test-chr-lab-harness-regression.py`, Python 3.14 compatible) proves each failure path is exercised through `transport.read()`/`write()` and detected; it runs inside `make validate`.
+
 ## Machine-readable evidence manifests (P0-5)
 
 Every lab/backup/restore run emits a JSON manifest with exact `commit_sha`, artifact `SHA-256` checksums, RouterOS version where known, CHR image provenance where applicable, test IDs, observed outcomes and ISO-8601 timestamps. Counts are derived from actual test records (never hand-written):

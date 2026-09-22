@@ -40,6 +40,10 @@ EOF
 # shellcheck disable=SC2029
 ssh_mt() { ssh "${SSH_OPTS[@]}" "$TARGET" "$@"; }
 
+# Stdin-driven RouterOS session avoids placing secrets in ssh argv (ps-visible).
+# shellcheck disable=SC2029
+ssh_stdin() { ssh "${SSH_OPTS[@]}" "$TARGET"; }
+
 status() {
   ssh_mt '/system identity print; /system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard peers print detail'
 }
@@ -66,32 +70,187 @@ wifi_single_network_status() {
 }
 
 backup() {
-  local stamp name password password_file password_dir
-  stamp="$(date +%Y%m%d-%H%M%S)"
-  name="omega-policedbc-$stamp"
-  password_dir="${OMEGA_BACKUP_PASSWORD_DIR:-$ROOT/state/backup-secrets}"
-  mkdir -p "$ROOT/backups" "$password_dir"
-  chmod 700 "$password_dir"
+  # ขั้นตอน backup แบบ idempotent: staging ส่วนตัว + ตรวจสอบ + เผยแพร่แบบ atomic
+  # ไม่รายงานความสำเร็จสำหรับ partial backup; cleanup ต้องไม่บดบัง error เดิม
   umask 077
+  local stamp uniq rand_suffix name password password_file password_dir backup_dir
+  local tmpdir stage_rsc stage_backup final_rsc final_backup
+  local xtrace_was_on=0 rc=0 commit_sha created_at router_version
+  local rsc_sha backup_sha rsc_bytes backup_bytes manifest_file
+  local retention_count offhost_dir
+  if [[ $- == *x* ]]; then xtrace_was_on=1; fi
+  set +x
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  # ตัวระบุที่ไม่ซ้ำ: timestamp + pid + random (กันชนกันเมื่อรันถี่/พร้อมกัน)
+  rand_suffix="$(openssl rand -hex 4 2>/dev/null || printf '%s%s' "$RANDOM" "$RANDOM")"
+  uniq="${stamp}-$$-${rand_suffix}"
+  name="omega-policedbc-$uniq"
+  backup_dir="${OMEGA_BACKUP_DIR:-$ROOT/backups}"
+  password_dir="${OMEGA_BACKUP_PASSWORD_DIR:-$ROOT/state/backup-secrets}"
+  mkdir -p "$backup_dir" "$password_dir"
+  chmod 700 "$backup_dir" "$password_dir"
   password="${OMEGA_BACKUP_PASSWORD:-}"
   if [[ -z "$password" ]]; then
-    command -v openssl >/dev/null 2>&1 || { echo 'openssl is required to generate an encrypted backup password' >&2; exit 1; }
+    command -v openssl >/dev/null 2>&1 || { echo 'openssl is required to generate an encrypted backup password' >&2; return 1; }
     password="$(openssl rand -hex 32)"
   fi
   [[ "$password" =~ ^[A-Za-z0-9_-]{24,}$ ]] || {
     echo 'OMEGA_BACKUP_PASSWORD must contain only letters, digits, _ or - and be at least 24 characters' >&2
-    exit 2
+    unset password
+    return 2
   }
   password_file="$password_dir/$name.backup.password"
   printf '%s\n' "$password" > "$password_file"
   chmod 600 "$password_file"
 
-  ssh_mt "/export terse file=$name; /system backup save name=$name encryption=aes-sha256 password=$password"
-  scp "${SSH_OPTS[@]}" "$TARGET:$name.rsc" "$ROOT/backups/$name.rsc"
-  scp "${SSH_OPTS[@]}" "$TARGET:$name.backup" "$ROOT/backups/$name.backup"
-  ssh_mt ":foreach f in=[/file find where name=\"$name.rsc\"] do={ /file remove \$f }; :foreach f in=[/file find where name=\"$name.backup\"] do={ /file remove \$f }"
-  echo "Saved $ROOT/backups/$name.rsc"
-  echo "Saved encrypted binary backup $ROOT/backups/$name.backup"
+  # staging ส่วนตัวสำหรับ download (กัน partial file ปรากฏที่ปลายทาง)
+  tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/omega-backup-XXXXXX")"
+  chmod 700 "$tmpdir"
+  stage_rsc="$tmpdir/$name.rsc.part"
+  stage_backup="$tmpdir/$name.backup.part"
+  final_rsc="$backup_dir/$name.rsc"
+  final_backup="$backup_dir/$name.backup"
+  manifest_file="$backup_dir/$name.manifest.json"
+
+  # cleanup router temp files แบบ best-effort (ไม่ทำให้ error เดิมหาย)
+  backup_cleanup_router() {
+    ssh_mt ":foreach f in=[/file find where name=\"$name.rsc\"] do={ /file remove \$f }; :foreach f in=[/file find where name=\"$name.backup\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
+  }
+  # trap ภายใน backup: เก็บ rc เดิมแล้วค่อย cleanup (ไม่บดบัง original error)
+  trap 'rc=$?; rm -rf "${tmpdir:-}"; trap - RETURN' RETURN
+
+  # สร้าง export + encrypted binary backup บน router โดยส่ง password ทาง stdin
+  # (ไม่ใส่ password ใน ssh argv เพื่อไม่ให้ปรากฏใน ps/process output)
+  # หมายเหตุ: ใช้ || block แทน if ! เพื่อให้ rc=$? เก็บ exit code จริง (if ! จะได้ 0)
+  # RouterOS commands via stdin pipe are intentional; no client-side expansion.
+  {
+    printf '/export terse file=%s\n' "$name"
+    printf '/system backup save name=%s encryption=aes-sha256 password=%s\n' "$name" "$password"
+  } | ssh_stdin || {
+    rc=$?
+    (( rc != 0 )) || rc=1
+    echo 'ERROR: failed to create router backup artifacts (no partial success reported)' >&2
+    rm -rf "$tmpdir"
+    backup_cleanup_router
+    unset password
+    trap - RETURN
+    if (( xtrace_was_on )); then set -x; fi
+    return "$rc"
+  }
+  unset password
+
+  # download ไปยัง staging ก่อน (ยังไม่ถือว่าสำเร็จถ้าได้ไม่ครบทั้งสองไฟล์)
+  scp "${SSH_OPTS[@]}" "$TARGET:$name.rsc" "$stage_rsc" || {
+    rc=$?
+    (( rc != 0 )) || rc=1
+    echo 'ERROR: incomplete backup: export download failed (partial backup is not success)' >&2
+    rm -rf "$tmpdir"
+    backup_cleanup_router
+    trap - RETURN
+    if (( xtrace_was_on )); then set -x; fi
+    return "$rc"
+  }
+  scp "${SSH_OPTS[@]}" "$TARGET:$name.backup" "$stage_backup" || {
+    rc=$?
+    (( rc != 0 )) || rc=1
+    echo 'ERROR: incomplete backup: binary backup download failed (partial backup is not success)' >&2
+    rm -rf "$tmpdir"
+    backup_cleanup_router
+    trap - RETURN
+    if (( xtrace_was_on )); then set -x; fi
+    return "$rc"
+  }
+
+  # ตรวจสอบว่าได้ครบทั้งสองไฟล์และไม่ว่าง (กัน success ปลอมจาก partial/empty)
+  [[ -s "$stage_rsc" ]] || {
+    echo 'ERROR: incomplete backup: export artifact is missing or empty; both artifacts are required' >&2
+    rm -rf "$tmpdir"
+    backup_cleanup_router
+    trap - RETURN
+    if (( xtrace_was_on )); then set -x; fi
+    return 1
+  }
+  [[ -s "$stage_backup" ]] || {
+    echo 'ERROR: incomplete backup: binary artifact is missing or empty; both artifacts are required' >&2
+    rm -rf "$tmpdir"
+    backup_cleanup_router
+    trap - RETURN
+    if (( xtrace_was_on )); then set -x; fi
+    return 1
+  }
+
+  # คำนวณ checksum ก่อนเผยแพร่
+  rsc_sha="$(sha256sum "$stage_rsc" | awk '{print $1}')"
+  backup_sha="$(sha256sum "$stage_backup" | awk '{print $1}')"
+  rsc_bytes="$(wc -c < "$stage_rsc" | tr -d ' ')"
+  backup_bytes="$(wc -c < "$stage_backup" | tr -d ' ')"
+  chmod 600 "$stage_rsc" "$stage_backup"
+
+  # เผยแพร่แบบ atomic: mv validated .part staging to final atomically
+  mv -- "$stage_rsc" "$final_rsc" # mv .part staging to final atomic publish
+  mv -- "$stage_backup" "$final_backup" # mv .part staging to final atomic publish
+  chmod 600 "$final_rsc" "$final_backup"
+  printf '%s  %s\n' "$rsc_sha" "$(basename "$final_rsc")" > "$final_rsc.sha256"
+  printf '%s  %s\n' "$backup_sha" "$(basename "$final_backup")" > "$final_backup.sha256"
+  chmod 600 "$final_rsc.sha256" "$final_backup.sha256"
+
+  # เก็บ manifest ที่ผูก commit/timestamp/artifact (ไม่รวม password/secret)
+  commit_sha="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf 'unknown')"
+  created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  router_version="$(ssh_mt '/system resource get version' 2>/dev/null | tr -d '\r\n' || printf 'unknown')"
+  {
+    printf '{\n'
+    printf '  "backup_id": "%s",\n' "$name"
+    printf '  "commit_sha": "%s",\n' "$commit_sha"
+    printf '  "created_at": "%s",\n' "$created_at"
+    printf '  "router_host": "%s",\n' "$ROUTER_HOST"
+    printf '  "router_user": "%s",\n' "$ROUTER_SSH_USER"
+    printf '  "router_version": "%s",\n' "$router_version"
+    printf '  "artifacts": [\n'
+    printf '    {"name": "%s", "sha256": "%s", "bytes": %s},\n' "$(basename "$final_rsc")" "$rsc_sha" "$rsc_bytes"
+    printf '    {"name": "%s", "sha256": "%s", "bytes": %s}\n' "$(basename "$final_backup")" "$backup_sha" "$backup_bytes"
+    printf '  ],\n'
+    printf '  "password_file": "%s"\n' "$(basename "$password_file")"
+    printf '}\n'
+  } > "$manifest_file"
+  chmod 600 "$manifest_file"
+
+  # ลบ router temp เฉพาะเมื่อ local verified copy ครบแล้ว (ไม่ลบ copy เดียวที่ verify แล้ว)
+  backup_cleanup_router
+  rm -rf "$tmpdir"
+  trap - RETURN
+
+  # retention: เก็บเฉพาะ N ชุดล่าสุด ไม่ลบ copy เดียวที่เหลือ (OMEGA_BACKUP_RETENTION_COUNT)
+  retention_count="${OMEGA_BACKUP_RETENTION_COUNT:-30}"
+  if [[ "$retention_count" =~ ^[0-9]+$ ]]; then
+    if (( retention_count > 0 )); then
+      # คงไฟล์ชุดปัจจุบันไว้เสมอ แล้วลบเฉพาะส่วนเกินจากเก่าไปใหม่
+      mapfile -t _old_backups < <(ls -1t "$backup_dir"/omega-policedbc-*.rsc 2>/dev/null || true)
+      if (( ${#_old_backups[@]} > retention_count )); then
+        for ((_i=retention_count; _i<${#_old_backups[@]}; _i++)); do
+          _base="${_old_backups[$_i]%.rsc}"
+          # กันลบชุดที่เพิ่งสร้าง
+          if [[ "$_base" == "$backup_dir/$name" ]]; then continue; fi
+          rm -f "$_base.rsc" "$_base.rsc.sha256" "$_base.backup" "$_base.backup.sha256" "$_base.manifest.json" || true
+        done
+      fi
+    fi
+  fi
+
+  # optional off-host copy (ไม่ทำให้ backup หลักล้มเหลวถ้าปลายทางมีปัญหา)
+  offhost_dir="${OMEGA_BACKUP_OFFHOST_DIR:-}"
+  if [[ -n "$offhost_dir" ]]; then
+    mkdir -p "$offhost_dir" 2>/dev/null || echo "WARN: off-host backup retention directory unavailable: $offhost_dir" >&2
+    if [[ -d "$offhost_dir" ]]; then
+      cp -p "$final_rsc" "$final_rsc.sha256" "$final_backup" "$final_backup.sha256" "$manifest_file" "$offhost_dir/" 2>/dev/null \
+        || echo "WARN: off-host backup copy incomplete (primary verified copy retained locally)" >&2
+    fi
+  fi
+
+  if (( xtrace_was_on )); then set -x; fi
+  echo "Saved $final_rsc"
+  echo "Saved encrypted binary backup $final_backup"
+  echo "Saved manifest $manifest_file"
   echo "Backup password saved with mode 600 at $password_file"
 }
 

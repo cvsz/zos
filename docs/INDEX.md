@@ -27,7 +27,8 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 | `docs/NETWORK-RECOVERY.md` | CORE route/WireGuard recovery |
 | `docs/SSH-HARDENING.md` | SSH key-only baseline |
 | `docs/DISASTER-RECOVERY.md` | rollback and service restoration |
-| `docs/PRODUCTION-READINESS.md` | repository vs runtime acceptance |
+| `docs/PRODUCTION-READINESS.md` | repository, CHR, router-change and production acceptance gates |
+| `docs/OPENCODE-MASTER-PROMPT.md` | phase-gated OpenCode implementation prompt and evidence contract |
 | `docs/PRODUCTION-MIGRATION.md` | legacy-to-current topology guidance |
 | `docs/LEGACY-DHCP-MIGRATION.md` | runbook สำหรับ quarantine legacy DHCP pools/networks แบบ one-shot และ fail-closed |
 | `docs/WIFI-SINGLE-NETWORK.md` | EWS1200D + EWS310AP profile แบบ 1 SSID / 1 subnet / untagged พร้อม roaming baseline |

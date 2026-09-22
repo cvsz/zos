@@ -39,13 +39,26 @@ CORE is runtime-ready when:
 - APT trust remains signature-verified;
 - any network/SSH recovery survives reboot.
 
+## Current live-apply blocker
+
+As of the reviewed repository state on 2026-09-22, PRs #61-#64 are merged and their required validation/build/security workflows passed. These results establish only the scope exercised by repository CI. The direct `apply` command is disabled and `tools/routeros-safe-session.py` returns a fail-closed error; `apply-safe` cannot deploy. This is intentional until the interactive driver has independent CHR evidence. Never treat `OMEGA_ALLOW_LIVE_APPLY=1` as an override.
+
+## CHR-verified
+
+- isolated CHR version, topology, test runner and evidence are recorded;
+- SSH host key, PTY/prompt and Safe Mode entry are independently verified;
+- successful apply commits only after independent health checks;
+- script error, timeout, disconnect, session conflict, concurrent apply and failed health checks demonstrably roll back;
+- command echo and stale success markers cannot spoof acceptance;
+- backup restore and local recovery have been exercised.
+
 ## Router change-ready
 
 - current state audited;
 - recovery-capable management path proven;
 - export and backup captured;
 - intended phases dry-run cleanly;
-- Safe Mode/recovery available for risky changes;
+- the CHR-verified interactive Safe Mode driver and independent recovery path are available;
 - explicit live-apply gate enabled only for the approved window.
 
 ## Production accepted

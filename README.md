@@ -9,7 +9,7 @@
 
 zOS is the ZeaZDev management and safety control plane for MikroTik RouterOS. RouterOS remains the network operating system on the router; zOS runs from the controller side and adds deterministic planning, validation, backup, evidence, guarded apply, verification, recovery, and GitHub delivery workflows.
 
-> Production rule: normal CI is validation/build/evidence only. Live RouterOS mutation remains operator-gated and recovery-aware.
+> Production rule: normal CI is validation/build/evidence only. **Both `apply` and `apply-safe` are currently blocked** pending a CHR-verified interactive Safe Mode implementation. `OMEGA_ALLOW_LIVE_APPLY=1` does not override the driver block. Do not attempt production mutation from CI.
 
 ## Current verified invariants
 
@@ -83,18 +83,13 @@ make verify
 make e2e
 ~~~
 
-Live apply remains blocked unless the operator explicitly enables it after backup, dry-run, and a verified recovery path:
-
-~~~bash
-export OMEGA_ALLOW_LIVE_APPLY=1
-make apply
-~~~
+**Live apply is disabled in the current release.** Do not set `OMEGA_ALLOW_LIVE_APPLY=1` expecting `make apply` to work: `tools/routeros-safe-session.py` intentionally returns a nonzero status, and direct `tools/omega-router.sh apply` is disabled. The supported operator path is read-only inspection, encrypted backup, dry-run and verification. Follow [Production Readiness](docs/PRODUCTION-READINESS.md) and [OpenCode Master Prompt](docs/OPENCODE-MASTER-PROMPT.md) to implement and validate the missing CHR-backed interactive driver in a separate reviewed PR.
 
 Automatic RouterOS installation is separately double-gated by `OMEGA_AUTO_ROUTEROS_UPDATE=1` and `OMEGA_ALLOW_ROUTER_REBOOT=1`.
 
 ## Documentation map
 
-Start at `docs/INDEX.md`. Key documents include `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/INSTALLATION.md`, `docs/RUNBOOK.md`, `docs/NETWORK-RECOVERY.md`, `docs/SSH-HARDENING.md`, `docs/PRODUCTION-READINESS.md`, `docs/GITHUB-OPERATIONS.md`, `docs/TESTING.md`, `docs/RELEASES.md`, and `docs/DISASTER-RECOVERY.md`.
+Start at `docs/INDEX.md`. Key documents include `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/INSTALLATION.md`, `docs/RUNBOOK.md`, `docs/NETWORK-RECOVERY.md`, `docs/SSH-HARDENING.md`, `docs/PRODUCTION-READINESS.md`, `docs/GITHUB-OPERATIONS.md`, `docs/TESTING.md`, `docs/RELEASES.md`, `docs/DISASTER-RECOVERY.md`, and `docs/OPENCODE-MASTER-PROMPT.md`.
 
 ## Repository status is not production status
 

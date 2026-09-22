@@ -9,10 +9,10 @@ release-check: all
 	@grep -Fq '## Unreleased' CHANGELOG.md
 	@test -f LICENSE || { echo "Release blocked: project-wide LICENSE is not declared." >&2; exit 2; }
 	@git diff --quiet && git diff --cached --quiet || { echo "Release blocked: tracked working tree is dirty." >&2; exit 2; }
-	@test "$(git branch --show-current)" = main || { echo "Release blocked: releases must be created from main." >&2; exit 2; }
+	@test "$$(git branch --show-current)" = main || { echo "Release blocked: releases must be created from main." >&2; exit 2; }
 	@git fetch --quiet origin main
-	@test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" || { echo "Release blocked: local HEAD does not match origin/main." >&2; exit 2; }
-	@echo "Release checks passed for zOS $(tr -d '[:space:]' < zOS/VERSION)"
+	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || { echo "Release blocked: local HEAD does not match origin/main." >&2; exit 2; }
+	@echo "Release checks passed for zOS $$(tr -d '[:space:]' < zOS/VERSION)"
 
 release-package: release-check
 	@set -euo pipefail; version="$(tr -d '[:space:]' < zOS/VERSION)"; stage="dist/zos-mikrotik-$version"; rm -rf "$stage"; mkdir -p "$stage"; git archive --format=tar HEAD | tar -C "$stage" -xf -; tar -C dist -czf "dist/zos-mikrotik-$version.tar.gz" "zos-mikrotik-$version"; sha256sum "dist/zos-mikrotik-$version.tar.gz" > "dist/zos-mikrotik-$version.tar.gz.sha256"; echo "Built tracked-only dist/zos-mikrotik-$version.tar.gz"

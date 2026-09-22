@@ -4,6 +4,14 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Backup lifecycle hardening - atomic publish, checksums, manifest (Phase 3 P0-2)
+- เขียนใหม่ `backup()` ใน `tools/omega-router.sh` แบบ idempotent: ตัวระบุไม่ซ้ำ (`timestamp-pid-random`), `umask 077` ก่อน `mkdir`, `chmod 700` dirs / `chmod 600` artifacts, staging ส่วนตัวผ่าน `mktemp -d` + ไฟล์ `.part`, ตรวจสอบ `nonempty` ทั้งสองไฟล์, คำนวณ `SHA-256`, เผยแพร่แบบ `atomic mv` แล้วจึงเขียน `.sha256` + `manifest.json` (ผูก `backup_id/commit_sha/created_at/router_host/sha256/bytes` โดยไม่รวม password/secret)
+- ส่ง RouterOS backup commands ทาง `stdin pipe` (`ssh_stdin`) แทน `ssh argv` เพื่อไม่ให้ password ปรากฏใน `ps/process output`; ปิด shell tracing (`set +x`) รอบ password handling และไม่ echo password ใน stdout/logs/errors; รองรับ `OMEGA_BACKUP_DIR` override สำหรับ test isolation, `OMEGA_BACKUP_RETENTION_COUNT` (default 30, ไม่ลบ copy เดียวที่เหลือ), `OMEGA_BACKUP_OFFHOST_DIR` (optional copy, warn ไม่ fail backup หลัก)
+- แก้บั๊ก `if ! scp ...; then rc=$?` ที่เก็บ exit code ผิด (ได้ 0 ทำให้ partial backup รายงาน success): เปลี่ยนเป็น `|| { rc=$?; ...; return; }` พร้อม fallback `rc=1`
+- เพิ่ม `tools/test-backup-hardening.sh` 28 เคส (static 14 + mocked integration 14): unique ID, perms, mktemp/atomic, nonempty/sha256/manifest, trap ไม่บดบัง error, no password ใน ssh argv/stdout/`bash -x`, happy-path manifest/perm/checksum/unique, partial (binary fail) fail-closed ไม่มี manifest, empty fail-closed
+- ล็อก contract ใหม่ใน `tools/validate-repo.sh` และบังคับรัน backup regression ใน `make validate`
+- Live CHR restore verification ยัง **BLOCKED** (ไม่มี isolated CHR); backup file ที่มีอยู่ไม่ใช่ proof of recoverability จนกว่าจะมี restore drill สำเร็จ
+
 ### CHR Lab Mock Harness - Event-Driven Rewrite & Regression Tests (Phase 2)
 - เขียนใหม่ `tools/chr-lab-harness.py` แบบ event-driven: ใช้ transport interface จริง (`transport.read()`, `transport.write()`) เพื่อให้ failure injection paths ถูก exercise จริง — ไม่ใช่แค่ iterate responses
 - State machine transitions ขับเคลื่อนด้วย verified transport events: connection, prompt, Safe Mode entry, execution, verification

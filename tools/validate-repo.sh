@@ -21,6 +21,7 @@ required=(
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example config/wifi-single-network.env.example
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py tools/test-routeros-safe-session.py
+  tools/test-backup-hardening.sh
   tools/migrate-legacy-dhcp.sh migrations/20260921-legacy-dhcp-quarantine.rsc
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
@@ -38,7 +39,7 @@ grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documen
 if grep -Eiq '(^|_)(TOKEN|SECRET|PASSWORD|PRIVATE_KEY)=.+' cloudflare/config.env.example; then err 'Cloudflare template contains a populated credential'; fi
 grep -Fq 'cloudflare/config.env' .gitignore || err 'populated Cloudflare config is not ignored'
 
-executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/migrate-legacy-dhcp.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh zOS/bin/zos zOS/install.sh)
+executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/migrate-legacy-dhcp.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh tools/test-backup-hardening.sh zOS/bin/zos zOS/install.sh)
 for f in "${executables[@]}"; do [[ ! -f "$f" || -x "$f" ]] || err "operational entry point is not executable: $f"; done
 
 active=(00-PRECHECK.rsc 10-BACKUP-SNAPSHOT.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc 40-WIREGUARD-SERVICES.rsc 50-FIREWALL-NAT.rsc 60-OBSERVABILITY.rsc 90-EXPORT-EVIDENCE.rsc 99-VERIFY-HEALTH.rsc)
@@ -211,6 +212,20 @@ grep -Fq 'backups' .dockerignore || err 'Docker build context must exclude backu
 grep -Fq 'state' .dockerignore || err 'Docker build context must exclude runtime state'
 grep -Fq 'expected advertised version' tools/routeros-auto-update.sh || err 'auto-update must verify the advertised target version'
 grep -Fq 'OMEGA_BACKUP_PASSWORD_DIR' tools/omega-router.sh || err 'backup password storage must be separable from backup artifacts'
+grep -Fq 'OMEGA_BACKUP_DIR' tools/omega-router.sh || err 'backup artifact directory must be overridable for test isolation'
+grep -Fq 'mktemp -d' tools/omega-router.sh || err 'backup must stage downloads in private temp files'
+grep -Fq 'sha256sum' tools/omega-router.sh || err 'backup must record SHA-256 checksums'
+grep -Fq 'manifest.json' tools/omega-router.sh || err 'backup must publish a machine-readable manifest'
+grep -Fq 'trap' tools/omega-router.sh || err 'backup must trap cleanup without masking the original error'
+grep -Fq 'set +x' tools/omega-router.sh || err 'backup must guard shell tracing around password handling'
+grep -Fq 'ssh_stdin' tools/omega-router.sh || err 'backup must avoid password in ssh argv via stdin transport'
+# shellcheck disable=SC2016
+if grep -Eq 'ssh_mt ".*password=\$password' tools/omega-router.sh; then err 'backup must not place password in ssh argv (ps-visible)'; fi
+grep -Fq 'partial backup is not success' tools/omega-router.sh || err 'backup must never report success for a partial backup'
+grep -Fq 'OMEGA_BACKUP_RETENTION_COUNT' tools/omega-router.sh || err 'backup must enforce retention without deleting the only verified copy'
+grep -Fq 'OMEGA_BACKUP_OFFHOST_DIR' tools/omega-router.sh || err 'backup must support optional off-host copy'
+grep -Fq 'test-backup-hardening' tools/validate-repo.sh || err 'backup hardening regression must be wired into repository validation'
+bash tools/test-backup-hardening.sh || err 'backup hardening regression tests failed'
 if grep -Fq "\"\$CORE\" check || true" zOS/bin/zos; then err 'zOS doctor must propagate CORE structural failures'; fi
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'

@@ -73,3 +73,13 @@ python3 tools/chr-lab-harness.py
 Produces sanitized evidence manifest at `artifacts/chr-lab/manifest-<run_id>.json`.
 All live RouterOS integration tests remain **BLOCKED** until isolated CHR is available.
 See `docs/CHR-LAB-EVIDENCE.md` for test matrix and status.
+
+## Backup Hardening (Mock, No Live Router)
+
+Idempotent backup lifecycle without a live router (mocked `ssh`/`scp`):
+
+~~~bash
+bash tools/test-backup-hardening.sh
+~~~
+
+Covers 28 checks: unique identifiers, `700`/`600` permissions, `mktemp` staging + atomic `mv` publish, nonempty validation, SHA-256 + manifest, cleanup trap preserving the original error, no password in ssh argv/stdout/`bash -x` trace, happy-path manifest/perms/checksum/unique IDs, partial-download and empty-artifact fail-closed behavior. Wired into `make validate` via `tools/validate-repo.sh`.

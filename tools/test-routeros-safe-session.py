@@ -331,5 +331,23 @@ def test_main_blocks_unprotected_ssh_apply(monkeypatch, tmp_path, capsys) -> Non
     assert "Live apply blocked" in capsys.readouterr().err
 
 
+def test_driver_rejects_missing_command_file_before_any_network(monkeypatch, tmp_path, capsys) -> None:
+    """Fail closed even when a caller requests an unverified live transaction."""
+    import argparse
+
+    missing = tmp_path / "missing.rsc"
+    monkeypatch.setattr(module, "parse_args", lambda: argparse.Namespace(
+        target="admin@192.0.2.1", command_file=str(missing),
+        output_file=str(tmp_path / "evidence.log"), identity=None,
+        prompt_timeout=1.0, safe_timeout=1.0, transaction_timeout=1.0,
+    ))
+    monkeypatch.setattr(module.subprocess, "Popen", lambda *args, **kwargs: pytest.fail(
+        "blocked driver must never launch SSH"
+    ))
+    assert module.main() == 4
+    assert not (tmp_path / "evidence.log").exists()
+    assert "Live apply blocked" in capsys.readouterr().err
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

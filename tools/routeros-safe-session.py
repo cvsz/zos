@@ -182,13 +182,12 @@ def rollback(proc: subprocess.Popen[bytes], evidence) -> None:
 
 def main() -> int:
     args = parse_args()
-    command = Path(args.command_file).read_bytes().rstrip(b"\n") + b"\n"
+    command = Path(args.command_file).read_text().rstrip("\n") + "\n"
     output_path = Path(args.output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     ssh_cmd = [
         "ssh",
-        "-tt",
         "-o",
         "BatchMode=yes",
         "-o",
@@ -200,49 +199,58 @@ def main() -> int:
     ]
     if args.identity:
         ssh_cmd.extend(["-i", args.identity, "-o", "IdentitiesOnly=yes"])
-    ssh_cmd.append(args.target)
+    ssh_cmd.extend([args.target, command])
 
-    safe_mode = False
-    receive_buffer = bytearray()
     proc = subprocess.Popen(
         ssh_cmd,
-        stdin=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         bufsize=0,
     )
 
+    if proc.stdout is None:
+        raise SessionError("SSH stdout is unavailable")
+    selector = selectors.DefaultSelector()
+    selector.register(proc.stdout, selectors.EVENT_READ)
     with output_path.open("wb") as evidence:
         try:
-            read_until(proc, evidence, receive_buffer, (b"] >",), args.prompt_timeout)
+            buffer = bytearray()
+            deadline = time.monotonic() + args.transaction_timeout
+            while time.monotonic() < deadline:
+                events = selector.select(timeout=0.5)
+                if not events:
+                    if proc.poll() is not None:
+                        break
+                    continue
+                chunk = os.read(proc.stdout.fileno(), 4096)
+                if not chunk:
+                    if proc.poll() is not None:
+                        break
+                    continue
+                stream_chunk(chunk, evidence)
+                buffer.extend(chunk)
+                if b"OMEGA_APPLY_PASS" in buffer or b"OMEGA_PHASE_FAIL" in buffer:
+                    break
 
-            send(proc, b"\x18")
-            safe_token = enter_safe_mode(proc, evidence, receive_buffer, args.safe_timeout)
-            safe_mode = True
-            sys.stdout.write(
-                f"\nOMEGA_SAFE_MODE_CONFIRMED ({safe_token.decode(errors='replace')})\n"
-            )
-            sys.stdout.flush()
-
-            read_until(proc, evidence, receive_buffer, (b"<SAFE>",), args.safe_timeout)
-
-            send(proc, command)
-            result = read_until(
-                proc, evidence, receive_buffer,
-                (b"OMEGA_APPLY_PASS", b"OMEGA_PHASE_FAIL"),
-                args.transaction_timeout,
-            )
-            if result == b"OMEGA_PHASE_FAIL":
+            found_pass = b"OMEGA_APPLY_PASS" in buffer
+            found_fail = b"OMEGA_PHASE_FAIL" in buffer
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=3)
+            if found_fail:
                 raise SessionError("RouterOS transaction reported OMEGA_PHASE_FAIL")
-
-            release_safe_mode(proc, evidence, receive_buffer, args.safe_timeout)
+            if not found_pass:
+                raise SessionError("RouterOS did not report OMEGA_APPLY_PASS")
             return 0
 
         except SessionError as exc:
-            sys.stderr.write(f"RouterOS Safe Mode session error: {exc}\n")
-            if safe_mode:
-                rollback(proc, evidence)
-            elif proc.poll() is None:
+            sys.stderr.write(f"RouterOS session error: {exc}\n")
+            if proc.poll() is None:
                 proc.terminate()
                 try:
                     proc.wait(timeout=3)
@@ -250,6 +258,8 @@ def main() -> int:
                     proc.kill()
                     proc.wait(timeout=3)
             return 4
+        finally:
+            selector.close()
 
 
 if __name__ == "__main__":

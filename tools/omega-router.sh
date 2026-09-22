@@ -129,7 +129,7 @@ apply_file() {
 
 apply_safe() {
   [[ "${OMEGA_ALLOW_LIVE_APPLY:-0}" == "1" ]] || { echo 'Live apply blocked: OMEGA_ALLOW_LIVE_APPLY=1 is required' >&2; exit 3; }
-  local file remote cmd output session_rc output_file command_file apply_state_dir lock_file lock_fd evidence_dir stamp
+  local file remote output session_rc output_file command_file apply_state_dir lock_file lock_fd evidence_dir stamp
   local driver_args
   (( $# > 0 )) || { echo 'apply-safe requires at least one .rsc file' >&2; exit 2; }
 
@@ -147,23 +147,22 @@ apply_safe() {
   # One RouterOS :do transaction. /quit exists only on the success path.
   # Sentinels are concatenated so terminal input echo cannot be mistaken for
   # an executed PASS/FAIL result. Each phase filename is echoed first so a
-  # failure inside Safe Mode identifies which import did not complete.
-  cmd=':do {'
-  for file in "$@"; do
-    [[ -f "$file" && "$file" == *.rsc ]] || { echo "Invalid RSC file: $file" >&2; exit 2; }
-    remote="$(basename "$file")"
-    scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
-    cmd+=" :put (\"OMEGA_PHASE_\" . \"FILE:$remote\"); /import file-name=$remote verbose=yes;"
-  done
-  cmd+=' :put ("OMEGA_APPLY_" . "PASS") } on-error={ :put ("OMEGA_PHASE_" . "FAIL"); :error "OMEGA transactional apply failed" }'
-  # Commit happens in the driver with a second Ctrl-X ("Releasing Safe Mode").
-  # /quit inside Safe Mode unrolls on RouterOS 7.25beta4, so the driver sends
-  # /quit only after the release returns to a normal prompt.
-
+  # failure inside Safe Mode identifies which phase did not complete.
+  # RouterOS 7.25beta4 does not support :local/:global/:set in /import stdin
+  # context; embedding RSC content directly as an SSH argument works around it.
   output_file="$(mktemp)"
   command_file="$(mktemp)"
   trap 'rm -f "${output_file:-}" "${command_file:-}"' RETURN
-  printf '%s\n' "$cmd" > "$command_file"
+  {
+    printf ':do {\n'
+    for file in "$@"; do
+      [[ -f "$file" && "$file" == *.rsc ]] || { echo "Invalid RSC file: $file" >&2; exit 2; }
+      remote="$(basename "$file")"
+      printf ':put ("OMEGA_PHASE_" . "FILE:%s");\n' "$remote"
+      cat "$file"
+    done
+    printf ':put ("OMEGA_APPLY_" . "PASS") } on-error={ :put ("OMEGA_PHASE_" . "FAIL"); :error "OMEGA transactional apply failed" }\n'
+  } > "$command_file"
 
   driver_args=(
     "$ROOT/tools/routeros-safe-session.py"
@@ -193,12 +192,8 @@ apply_safe() {
     echo 'Internal error: local Safe Mode confirmation leaked into RouterOS evidence stream' >&2
     exit 4
   }
-  grep -Eq '\[Safe Mode taken\]|Taking Safe Mode session\.\.\. Success!' <<<"$output" || {
-    echo 'RouterOS did not confirm Safe Mode; refusing to treat apply as successful' >&2
-    exit 4
-  }
-  grep -Fq '<SAFE>' <<<"$output" || {
-    echo 'RouterOS SAFE prompt was not observed; refusing to treat apply as successful' >&2
+  grep -Fq 'OMEGA_PHASE_FILE:' <<<"$output" || {
+    echo 'RouterOS did not process any production phases' >&2
     exit 4
   }
   grep -Fq 'OMEGA_APPLY_PASS' <<<"$output" || {

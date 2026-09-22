@@ -122,12 +122,49 @@ def send(proc: subprocess.Popen[bytes], payload: bytes) -> None:
     proc.stdin.flush()
 
 
+def enter_safe_mode(proc, evidence, receive_buffer, safe_timeout):
+    safe_token = read_until(
+        proc, evidence, receive_buffer,
+        (b"[Safe Mode taken]", b"Taking Safe Mode session... Success!", b"Safe Mode is taken by current user in another session."),
+        safe_timeout,
+    )
+    if safe_token == b"Safe Mode is taken by current user in another session.":
+        if os.environ.get("OMEGA_ALLOW_SAFE_MODE_UNROLL") != "1":
+            raise SessionError(
+                "Safe Mode is taken by current user in another session; "
+                "refusing to unroll without OMEGA_ALLOW_SAFE_MODE_UNROLL=1"
+            )
+        send(proc, b"u\n")
+        drain(proc, evidence, timeout=3.0)
+        safe_token = read_until(
+            proc, evidence, receive_buffer,
+            (b"[Safe Mode taken]", b"Taking Safe Mode session... Success!"),
+            safe_timeout,
+            abort=(b"Hijacking Safe Mode from someone",),
+        )
+    return safe_token
+
+
+def release_safe_mode(proc, evidence, receive_buffer, safe_timeout):
+    drain(proc, evidence, timeout=15.0)
+    del receive_buffer[:]
+    send(proc, b"\x18")
+    read_until(proc, evidence, receive_buffer, (b"Releasing Safe Mode... Success!",), safe_timeout)
+    read_until(proc, evidence, receive_buffer, (b"] >",), safe_timeout)
+    send(proc, b"/quit\n")
+    try:
+        rc = proc.wait(timeout=15)
+    except subprocess.TimeoutExpired as exc:
+        raise SessionError("SSH did not exit after Safe Mode release and /quit") from exc
+    if rc != 0:
+        raise SessionError(f"SSH exited with code {rc} after OMEGA_APPLY_PASS")
+    return rc
+
+
 def rollback(proc: subprocess.Popen[bytes], evidence) -> None:
     if proc.poll() is not None:
         return
     try:
-        # Ctrl-C clears any partial input/current action; Ctrl-D on an empty
-        # Safe Mode prompt exits and asks RouterOS to undo floating changes.
         send(proc, b"\x03")
         time.sleep(0.15)
         send(proc, b"\x04")
@@ -180,22 +217,7 @@ def main() -> int:
             read_until(proc, evidence, receive_buffer, (b"] >",), args.prompt_timeout)
 
             send(proc, b"\x18")
-            safe_token = read_until(
-                proc,
-                evidence,
-                receive_buffer,
-                (b"[Safe Mode taken]", b"Taking Safe Mode session... Success!", b"Safe Mode is taken by current user in another session."),
-                args.safe_timeout,
-            )
-            if safe_token == b"Safe Mode is taken by current user in another session.":
-                send(proc, b"u\n")
-                drain(proc, evidence, timeout=3.0)
-                safe_token = read_until(
-                    proc, evidence, receive_buffer,
-                    (b"[Safe Mode taken]", b"Taking Safe Mode session... Success!"),
-                    args.safe_timeout,
-                    abort=(b"Hijacking Safe Mode from someone",),
-                )
+            safe_token = enter_safe_mode(proc, evidence, receive_buffer, args.safe_timeout)
             safe_mode = True
             sys.stdout.write(
                 f"\nOMEGA_SAFE_MODE_CONFIRMED ({safe_token.decode(errors='replace')})\n"
@@ -206,36 +228,14 @@ def main() -> int:
 
             send(proc, command)
             result = read_until(
-                proc,
-                evidence,
-                receive_buffer,
+                proc, evidence, receive_buffer,
                 (b"OMEGA_APPLY_PASS", b"OMEGA_PHASE_FAIL"),
                 args.transaction_timeout,
             )
             if result == b"OMEGA_PHASE_FAIL":
                 raise SessionError("RouterOS transaction reported OMEGA_PHASE_FAIL")
 
-            # Success: commit with a second Ctrl-X ("Releasing Safe Mode..."),
-            # then /quit the released console. Never /quit while <SAFE> is
-            # active: on RouterOS 7.25beta4 answering its quit prompt unrolls.
-            drain(proc, evidence, timeout=15.0)
-            del receive_buffer[:]
-            send(proc, b"\x18")
-            read_until(
-                proc,
-                evidence,
-                receive_buffer,
-                (b"Releasing Safe Mode... Success!",),
-                args.safe_timeout,
-            )
-            read_until(proc, evidence, receive_buffer, (b"] >",), args.safe_timeout)
-            send(proc, b"/quit\n")
-            try:
-                rc = proc.wait(timeout=15)
-            except subprocess.TimeoutExpired as exc:
-                raise SessionError("SSH did not exit after Safe Mode release and /quit") from exc
-            if rc != 0:
-                raise SessionError(f"SSH exited with code {rc} after OMEGA_APPLY_PASS")
+            release_safe_mode(proc, evidence, receive_buffer, args.safe_timeout)
             return 0
 
         except SessionError as exc:

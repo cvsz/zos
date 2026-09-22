@@ -214,7 +214,7 @@ grep -Fq 'package-ecosystem: docker' .github/dependabot.yml || err 'Dependabot D
 grep -Fq 'GOLDEN REINSTALL REFUSED: IP pools already exist' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must refuse non-clean IP pool state'
 grep -Fq 'GOLDEN REINSTALL REFUSED: DHCP servers already exist' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must refuse non-clean DHCP server state'
 grep -Fq 'GOLDEN REINSTALL REFUSED: existing firewall filter rules remain' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must fail fast on non-clean firewall state'
-grep -Fq '/ip pool add name=lan-pool next-pool=none ranges=192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall DHCP pool must match current production contract'
+grep -Fq '/ip pool add name=lan-pool ranges=192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall DHCP pool must match current production contract'
 grep -Fq '/system clock set time-zone-name=Asia/Bangkok' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must converge production timezone'
 grep -Fq '/system ntp client set enabled=yes' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must enable NTP'
 grep -Fq '/interface wireguard add name=wg-remote' reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc || err 'golden reinstall must converge WireGuard baseline'

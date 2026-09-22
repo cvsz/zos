@@ -84,6 +84,10 @@ The physical LAN must not appear in active WireGuard `AllowedIPs`. Backup files 
 - HashiCorp APT recovery may use only the reviewed official endpoint and pinned fingerprint in source.
 - APT signature verification must never be bypassed.
 
+## Container build context
+
+`.dockerignore` excludes local topology, backups, state, environment files, and key material from the controller image build context. Verify it remains current when adding new sensitive files to the repository.
+
 ## Repository completion checks
 
 ~~~bash
@@ -103,7 +107,24 @@ make status
 make audit
 make verify
 make e2e
+make wifi-status
+make migrate-legacy-dhcp
+make update-monitor-install
 ~~~
+
+`make migrate-legacy-dhcp` requires `OMEGA_ALLOW_LEGACY_DHCP_MIGRATION=1` and `OMEGA_ALLOW_LIVE_APPLY=1`. `make update-monitor-install` requires `OMEGA_ALLOW_LIVE_APPLY=1`.
+
+## Release workflow
+
+Releases require a clean, up-to-date `main` branch and explicit confirmation:
+
+~~~bash
+make release-check
+make release-package
+make release  # requires RELEASE_CONFIRM=1
+~~~
+
+`release-check` blocks on dirty working tree, non-main branch, out-of-sync HEAD, missing LICENSE, or untagged release version. `release` creates a signed tag `zos-v<version>` and publishes the tarball + checksum via GitHub Release.
 
 ## Documentation contract
 

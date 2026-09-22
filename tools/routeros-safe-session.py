@@ -182,7 +182,7 @@ def rollback(proc: subprocess.Popen[bytes], evidence) -> None:
 
 def main() -> int:
     args = parse_args()
-    command = Path(args.command_file).read_text().rstrip("\n") + "\n"
+    # Remote-command SSH cannot establish an interactive RouterOS Safe Mode session.\n    # Never report a successful protected apply until an interactive driver is implemented\n    # and verified against a RouterOS lab target.\n    raise SessionError(\n        "Live apply blocked: SSH remote-command mode does not establish RouterOS Safe Mode. "\n        "Use a verified interactive Safe Mode driver before production deployment."\n    )\n    command = Path(args.command_file).read_text().rstrip("\n") + "\n"
     output_path = Path(args.output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

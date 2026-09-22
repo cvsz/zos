@@ -4,6 +4,11 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Local Wi-Fi profile hygiene and build-context exclusion
+- เพิ่ม `config/wifi-single-network.env` ใน `.gitignore` และ `.dockerignore` เพื่อกัน operator SSID/site-specific values หลุดเข้า Git หรือ controller image build context.
+- เพิ่ม validation ใน `tools/validate-repo.sh` ให้ fail-closed ถ้า populated Wi-Fi profile ไม่อยู่ใน ignore ทั้งสองไฟล์ (กัน regression ตาม AGENTS.md container build context contract).
+- Live RouterOS apply paths ยังคง disabled (fail-closed) จนกว่า CHR-backed interactive Safe Mode และ rollback จะมี verified evidence.
+
 ### Golden RB4011 rebuild synchronized with current production contract
 - Refresh `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` for the current single-LAN `192.168.1.0/24` production baseline and RouterOS 7.25beta4 live behavior.
 - Fail fast on non-clean IP pool, DHCP, WireGuard, firewall/NAT, legacy `.0/.10`, or conflicting LAN-gateway state before the first mutation.

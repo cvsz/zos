@@ -196,6 +196,8 @@ grep -Fq 'CORE WireGuard peer public key differs from verified contract' 40-WIRE
 grep -Fq 'git archive --format=tar HEAD' Makefile || err 'release packaging must include tracked files only'
 grep -Fq 'Release blocked: project-wide LICENSE is not declared.' Makefile || err 'release must fail closed until a project license is declared'
 grep -Fq 'config/topology.env' .dockerignore || err 'Docker build context must exclude populated topology'
+grep -Fq 'config/wifi-single-network.env' .dockerignore || err 'Docker build context must exclude populated Wi-Fi profile'
+grep -Fq 'config/wifi-single-network.env' .gitignore || err 'populated Wi-Fi profile must remain local-only'
 grep -Fq 'backups' .dockerignore || err 'Docker build context must exclude backups'
 grep -Fq 'state' .dockerignore || err 'Docker build context must exclude runtime state'
 grep -Fq 'expected advertised version' tools/routeros-auto-update.sh || err 'auto-update must verify the advertised target version'

@@ -1,4 +1,5 @@
 config/topology.env
+config/wifi-single-network.env
 backups/
 state/
 *.backup

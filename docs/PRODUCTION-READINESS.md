@@ -41,7 +41,7 @@ CORE is runtime-ready when:
 
 ## Current live-apply blocker
 
-As of the reviewed repository state on 2026-09-22, PRs #61-#64 are merged and their required validation/build/security workflows passed. These results establish only the scope exercised by repository CI. The direct `apply` command is disabled and `tools/routeros-safe-session.py` returns a fail-closed error; `apply-safe` cannot deploy. This is intentional until the interactive driver has independent CHR evidence. Never treat `OMEGA_ALLOW_LIVE_APPLY=1` as an override.
+As of the reviewed repository state on 2026-09-22, PRs #61-#66 are merged and their required validation/build/security workflows passed. These results establish only the scope exercised by repository CI. The direct `apply` command is disabled and `tools/routeros-safe-session.py` returns a fail-closed error; `apply-safe` cannot deploy. This is intentional until the interactive driver has independent CHR evidence. Never treat `OMEGA_ALLOW_LIVE_APPLY=1` as an override.
 
 ## CHR-verified
 

@@ -4,6 +4,13 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Safe Mode nonce-framed state machine (testable, still fail-closed)
+- เพิ่ม `SessionState` (DISCONNECTED→UNKNOWN ครบ 11 สถานะ), `generate_nonce`, `build_framed_markers`, `classify_output`, `next_action`, `sanitize_for_evidence` ใน `tools/routeros-safe-session.py` แบบ pure function ไม่มี network และไม่มี credential ใน output.
+- `classify_output` ปฏิเสธ static `OMEGA_APPLY_PASS` echo โดยเด็ดขาด ยอมรับเฉพาะ pass marker ที่ผูก nonce ตรงรอบ transaction; `next_action` สั่ง commit ได้เฉพาะ Safe Mode ยืนยัน + nonce pass + health OK + ไม่มี fail/hijack นอกนั้น rollback และไม่มีวัน hijack session ของ operator อื่น.
+- เพิ่ม regression tests 9 เคส (รวมเป็น 28 tests) ครอบคลุม states, nonce, framing, echo-spoof, fail/hijack, commit-gate และ evidence redaction.
+- ล็อก contract ใหม่ใน `tools/validate-repo.sh` (fail-closed checks).
+- `main()` ยังคง return 4 (live apply disabled) จนกว่า CHR integration และ rollback tests จะมี verified evidence แยกต่างหาก.
+
 ### Local Wi-Fi profile hygiene and build-context exclusion
 - เพิ่ม `config/wifi-single-network.env` ใน `.gitignore` และ `.dockerignore` เพื่อกัน operator SSID/site-specific values หลุดเข้า Git หรือ controller image build context.
 - เพิ่ม validation ใน `tools/validate-repo.sh` ให้ fail-closed ถ้า populated Wi-Fi profile ไม่อยู่ใน ignore ทั้งสองไฟล์ (กัน regression ตาม AGENTS.md container build context contract).

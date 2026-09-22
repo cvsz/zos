@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
+import secrets
 import selectors
 import subprocess
 import sys
@@ -14,6 +16,83 @@ from pathlib import Path
 
 class SessionError(RuntimeError):
     pass
+
+
+class SessionState:
+    """สถานะวงจร Safe Mode (ยังไม่ผูกกับ live transport จนกว่า CHR จะ verify)."""
+
+    DISCONNECTED = "DISCONNECTED"
+    CONNECTED = "CONNECTED"
+    PROMPT_VERIFIED = "PROMPT_VERIFIED"
+    SAFE_MODE_CONFIRMED = "SAFE_MODE_CONFIRMED"
+    EXECUTING = "EXECUTING"
+    VERIFYING = "VERIFYING"
+    COMMITTING = "COMMITTING"
+    COMMITTED = "COMMITTED"
+    ROLLING_BACK = "ROLLING_BACK"
+    ROLLED_BACK = "ROLLED_BACK"
+    UNKNOWN = "UNKNOWN"
+
+
+def generate_nonce(nbytes: int = 16) -> str:
+    """สร้าง transaction nonce แบบสุ่ม (hex) สำหรับผูก pass/fail กับรอบเดียว."""
+    return secrets.token_hex(nbytes)
+
+
+def build_framed_markers(nonce: str) -> dict:
+    """สร้าง pass/fail marker ที่ผูก nonce เพื่อกัน command echo ปลอม success."""
+    return {
+        "pass": f"OMEGA_APPLY_{nonce}_PASS",
+        "fail": f"OMEGA_PHASE_{nonce}_FAIL",
+    }
+
+
+def classify_output(data: bytes, nonce: str) -> dict:
+    """แยกประเภท output แบบ pure function; static PASS เดี่ยวๆ ไม่นับเป็น success."""
+    markers = build_framed_markers(nonce)
+    pass_marker = markers["pass"].encode()
+    fail_marker = markers["fail"].encode()
+    return {
+        # ยืนยัน Safe Mode จาก RouterOS จริง
+        "safe_taken": b"[Safe Mode taken]" in data
+        or b"Taking Safe Mode session... Success!" in data,
+        # session ค้างของ operator ปัจจุบัน (ต้อง opt-in ก่อน unroll)
+        "stale_session": b"Safe Mode is taken by current user in another session." in data,
+        # ห้าม hijack session ของ operator อื่นเด็ดขาด
+        "hijack": b"Hijacking Safe Mode from someone" in data,
+        # มี phase ถูกประมวลผลจริง
+        "phase_file": b"OMEGA_PHASE_" in data and b"FILE:" in data,
+        # ยอมรับเฉพาะ pass ที่ผูก nonce ตรงรอบนี้
+        "pass_accepted": pass_marker in data,
+        # fail ปิดแบบ fail-closed: รับทั้ง nonce marker และ legacy static FAIL
+        "fail": fail_marker in data or b"OMEGA_PHASE_FAIL" in data,
+    }
+
+
+def next_action(state: str, events: dict, health_ok: bool) -> str:
+    """ตัดสินใจ commit/rollback; commit ได้เฉพาะทางสำเร็จครบถ้วนเท่านั้น."""
+    if (
+        state in (SessionState.SAFE_MODE_CONFIRMED, SessionState.VERIFYING)
+        and events.get("pass_accepted")
+        and health_ok
+        and not events.get("fail")
+        and not events.get("hijack")
+    ):
+        return "commit"
+    return "rollback"
+
+
+def sanitize_for_evidence(data: bytes) -> bytes:
+    """redact key/password/token ออกจาก evidence ก่อนเขียนไฟล์หรือ log."""
+    redacted = re.sub(rb"private-key=\S+", b"private-key=[REDACTED]", data)
+    redacted = re.sub(rb"(?i)(password|passwd|secret)=\S+", rb"\1=[REDACTED]", redacted)
+    redacted = re.sub(rb"(?i)(token|bearer)\s*[:=]\s*\S+", rb"\1=[REDACTED]", redacted)
+    redacted = re.sub(
+        rb"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----",
+        b"[REDACTED PRIVATE KEY BLOCK]",
+        redacted,
+    )
+    return redacted
 
 
 def parse_args() -> argparse.Namespace:

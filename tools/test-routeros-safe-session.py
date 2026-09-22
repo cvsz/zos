@@ -349,5 +349,103 @@ def test_driver_rejects_missing_command_file_before_any_network(monkeypatch, tmp
     assert "Live apply blocked" in capsys.readouterr().err
 
 
+# --- Phase 1: nonce-framed Safe Mode state machine (still fail-closed) ---
+
+def test_session_states_cover_lifecycle() -> None:
+    """State machine ต้องมีครบทุกสถานะตาม Master Prompt Phase 1."""
+    states = module.SessionState
+    for name in ("DISCONNECTED", "CONNECTED", "PROMPT_VERIFIED",
+                 "SAFE_MODE_CONFIRMED", "EXECUTING", "VERIFYING",
+                 "COMMITTING", "COMMITTED", "ROLLING_BACK",
+                 "ROLLED_BACK", "UNKNOWN"):
+        assert isinstance(getattr(states, name), str)
+
+
+def test_generate_nonce_unique_and_hex() -> None:
+    """Nonce ต้องไม่ซ้ำและเป็น hex เพื่อผูกกับ transaction เดียว."""
+    first = module.generate_nonce()
+    second = module.generate_nonce()
+    assert first != second
+    assert len(first) == 32
+    int(first, 16)
+
+
+def test_framed_markers_bind_nonce() -> None:
+    """Pass/Fail marker ต้องผูก nonce; static marker เดี่ยวๆ ต้องไม่เท่ากับ pass."""
+    nonce = module.generate_nonce()
+    markers = module.build_framed_markers(nonce)
+    assert nonce in markers["pass"]
+    assert nonce in markers["fail"]
+    assert markers["pass"] != "OMEGA_APPLY_PASS"
+    assert "OMEGA_APPLY_PASS" not in markers["pass"].replace(nonce, "")
+
+
+def test_classify_ignores_static_pass_echo() -> None:
+    """Command echo ของ static OMEGA_APPLY_PASS ต้องไม่ถูกนับเป็น success."""
+    nonce = module.generate_nonce()
+    events = module.classify_output(b"] > OMEGA_APPLY_PASS\r\n", nonce)
+    assert events["pass_accepted"] is False
+
+
+def test_classify_accepts_nonce_pass() -> None:
+    """Pass marker ที่มี nonce ตรงกันเท่านั้นจึงยอมรับ."""
+    nonce = module.generate_nonce()
+    markers = module.build_framed_markers(nonce)
+    data = b"OMEGA_PHASE_FILE:00-PRECHECK.rsc\r\n" + markers["pass"].encode()
+    events = module.classify_output(data, nonce)
+    assert events["pass_accepted"] is True
+    assert events["phase_file"] is True
+    assert events["fail"] is False
+
+
+def test_classify_detects_fail_and_hijack() -> None:
+    """Fail marker และ hijack prompt ต้องตรวจจับได้เพื่อสั่ง rollback."""
+    nonce = module.generate_nonce()
+    markers = module.build_framed_markers(nonce)
+    fail_events = module.classify_output(markers["fail"].encode(), nonce)
+    assert fail_events["fail"] is True
+    assert fail_events["pass_accepted"] is False
+    hijack_events = module.classify_output(
+        b"Hijacking Safe Mode from someone else, release it? [y/N]:", nonce)
+    assert hijack_events["hijack"] is True
+
+
+def test_next_action_commits_only_on_full_success() -> None:
+    """Commit ได้เฉพาะ Safe Mode ยืนยัน + nonce pass + health OK + ไม่มี fail/hijack."""
+    states = module.SessionState
+    nonce = module.generate_nonce()
+    markers = module.build_framed_markers(nonce)
+    good = module.classify_output(
+        b"[Safe Mode taken]\r\n" + markers["pass"].encode(), nonce)
+    assert module.next_action(states.SAFE_MODE_CONFIRMED, good, True) == "commit"
+    assert module.next_action(states.SAFE_MODE_CONFIRMED, good, False) == "rollback"
+    bad = module.classify_output(
+        markers["pass"].encode() + b"\r\nOMEGA_PHASE_FAIL\r\n", nonce)
+    assert module.next_action(states.SAFE_MODE_CONFIRMED, bad, True) == "rollback"
+    assert module.next_action(states.EXECUTING, good, True) == "rollback"
+    assert module.next_action(states.UNKNOWN, good, True) == "rollback"
+
+
+def test_next_action_never_hijacks() -> None:
+    """Stale session ของ operator อื่นต้องไม่ถูก hijack อัตโนมัติ."""
+    states = module.SessionState
+    nonce = module.generate_nonce()
+    events = module.classify_output(
+        b"Safe Mode is taken by current user in another session.", nonce)
+    assert events["stale_session"] is True
+    assert module.next_action(states.CONNECTED, events, True) == "rollback"
+
+
+def test_sanitize_redacts_secrets() -> None:
+    """Evidence recorder ต้อง redact key/password/token ก่อนเขียนไฟล์."""
+    raw = (b"ok line\nprivate-key=AAAA9876\npassword=supersecret1\n"
+           b"token=abcdef1234567890\n")
+    clean = module.sanitize_for_evidence(raw)
+    assert b"AAAA9876" not in clean
+    assert b"supersecret1" not in clean
+    assert b"abcdef1234567890" not in clean
+    assert b"ok line" in clean
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

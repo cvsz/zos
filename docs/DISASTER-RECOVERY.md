@@ -57,3 +57,24 @@ After recovery, repeat repository validation where code changed, then live CORE/
 ## Disaster-recovery exercise
 
 A DR plan is not fully evidenced until restore/rollback has been exercised in an appropriate environment and the result recorded. CI passing is not restore evidence.
+
+
+## Golden RB4011 clean rebuild
+
+`reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` is the current clean-rebuild bootstrap for the PoliceDBC RB4011 production contract.
+
+Use it only from a recovery-capable console/MAC-WinBox path. It now fails before the first mutation when IP pools, DHCP server/network/lease state, WireGuard interfaces, or firewall/NAT rules are still present. This is intentional: the artifact is not a live-normalization script and must not silently merge with an unknown configuration.
+
+The current golden contract rebuilds:
+
+- `DBC-Bridge-Local = 192.168.1.1/24` with one untagged LAN and no bridge VLAN filtering;
+- DHCP WAN on `ether1`;
+- production `lan-pool`, `lan-dhcp`, fixed infrastructure and EnGenius `.50-.58` reservations;
+- RouterOS DNS cache, managed local DNS, `Asia/Bangkok` timezone, and NTP client;
+- `wg-remote = 10.8.0.1/24`, the verified CORE peer, VPN interface-list membership;
+- current PoliceDBC firewall/NAT policy, service hardening, and local observability;
+- fail-closed post-rebuild assertions before the success sentinel.
+
+No WireGuard private key is committed. A clean rebuild generates a new router WireGuard keypair and prints `OMEGA WG ROUTER PUBLIC KEY=...`; reconcile that public key on CORE before VPN acceptance.
+
+After the golden bootstrap succeeds, run the current guarded phase stack and `99-VERIFY-HEALTH.rsc`. A successful golden import alone is not production acceptance.

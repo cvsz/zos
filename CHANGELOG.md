@@ -4,6 +4,24 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### CHR Lab Mock Harness - Event-Driven Rewrite & Regression Tests (Phase 2)
+- เขียนใหม่ `tools/chr-lab-harness.py` แบบ event-driven: ใช้ transport interface จริง (`transport.read()`, `transport.write()`) เพื่อให้ failure injection paths ถูก exercise จริง — ไม่ใช่แค่ iterate responses
+- State machine transitions ขับเคลื่อนด้วย verified transport events: connection, prompt, Safe Mode entry, execution, verification
+- `trust_level` ใน `OutputEvent` จัดเป็น trusted เฉพาะ RouterOS response หลัง write ของเรา (`after_our_write=True`) — ไม่มี unconditional trusted status
+- เพิ่ม `tools/test-chr-lab-harness-regression.py`: regression tests 9 เคสแสดง false-positive defects ของ harness เก่า (connection/auth/prompt timeout ไม่ได้ exercise จริง, trust_level unconditional, OR logic masks failures, transport.read() ไม่ถูกเรียก, echo spoof ไม่ถูก detect)
+- Mock scenarios 16 เคส PASS ทั้งหมด: SSH connect/auth/timeout, Safe Mode refusal/hijack, script error, health failure, SSH disconnect, SIGINT/SIGTERM, concurrent apply, stale nonce/static marker spoof, fragmented/truncated output, rollback, commit gate
+- Live CHR integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03) mark **BLOCKED** ตาม AGENTS.md — ห้าม fabricate
+- `main()` ใน `routeros-safe-session.py` ยังคง return 4 (live apply disabled)
+
+### CHR Lab Mock Harness & Failure Injection (Phase 2)
+- เพิ่ม `tools/chr-lab-harness.py`: deterministic mock SSH transport + 15 failure-injection scenarios (SSH connect/auth failure, prompt timeout, Safe Mode refusal/hijack, script error, health failure, SSH disconnect, SIGINT/SIGTERM, concurrent apply, stale nonce/static marker spoof, fragmented/truncated output, rollback, commit gate)
+- เพิ่ม `docs/CHR-LAB-EVIDENCE.md`: reproducible evidence manifest template, test matrix (29 tests: 15 mock PASS + 14 live BLOCKED), safe CHR provisioning guidance, provenance requirements
+- `classify_output` แก้ weakness: nonce-bearing PASS ใน command echo ไม่นับเป็น execution proof — ต้องมี `after_our_write=True` (trusted response) เท่านั้นจึง `pass_accepted` และ `is_successful_commit_signal()`
+- เพิ่ม `OutputEvent` dataclass กับ `trust_level` (trusted/untrusted), `FramedMarkers` class, `MockTransport` สำหรับ unit tests
+- Live CHR integration tests ทั้งหมด mark **BLOCKED** จนกว่าจะมี isolated CHR instance + authorization
+- อัปเดต `docs/TESTING.md`, `docs/ROADMAP.md`, `docs/EVIDENCE-MATRIX.md`, `docs/PRODUCTION-READINESS.md`
+- `main()` ยังคง return 4 (live apply disabled)
+
 ### Safe Mode nonce-framed state machine (testable, still fail-closed)
 - เพิ่ม `SessionState` (DISCONNECTED→UNKNOWN ครบ 11 สถานะ), `generate_nonce`, `build_framed_markers`, `classify_output`, `next_action`, `sanitize_for_evidence` ใน `tools/routeros-safe-session.py` แบบ pure function ไม่มี network และไม่มี credential ใน output.
 - `classify_output` ปฏิเสธ static `OMEGA_APPLY_PASS` echo โดยเด็ดขาด ยอมรับเฉพาะ pass marker ที่ผูก nonce ตรงรอบ transaction; `next_action` สั่ง commit ได้เฉพาะ Safe Mode ยืนยัน + nonce pass + health OK + ไม่มี fail/hijack นอกนั้น rollback และไม่มีวัน hijack session ของ operator อื่น.

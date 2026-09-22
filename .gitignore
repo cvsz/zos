@@ -14,3 +14,4 @@ cloudflare/config.env
 .env.cloudflare
 core/install-ssh-key-local.sh
 tools/__pycache__/
+upgrade/*.bin

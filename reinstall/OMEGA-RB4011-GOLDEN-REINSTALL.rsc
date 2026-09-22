@@ -120,9 +120,9 @@
  /ip dhcp-server lease add server=lan-dhcp address=192.168.1.58 mac-address=88:DC:96:55:58:E1 comment="PANKHONGCHUEN-AP02"
  /ip dhcp-server lease add server=lan-dhcp address=192.168.1.238 mac-address=E4:90:2A:40:61:21 comment="ZEAZ Wifi Repeater"
 
-# WireGuard rebuild. No private key is stored in Git; RouterOS generates a new
-# interface key on a clean rebuild. The public key is printed below so CORE can
-# be reconciled through the recovery procedure before VPN acceptance.
+# WireGuard rebuild. No secret key material is stored in Git; RouterOS generates
+# a new interface key on a clean rebuild. The public key is printed below so CORE
+# can be reconciled through the recovery procedure before VPN acceptance.
  /interface wireguard add name=wg-remote listen-port=51820 mtu=1420 comment="PoliceDBC: VPN"
  /ip address add address=10.8.0.1/24 interface=wg-remote comment="PoliceDBC: VPN GATEWAY"
  /interface list member add list=VPN interface=wg-remote comment="OMEGA-MANAGED"

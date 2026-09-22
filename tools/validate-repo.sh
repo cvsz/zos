@@ -277,5 +277,6 @@ fi
 
 grep -Fq 'Unsafe direct apply is disabled.' tools/omega-router.sh || err 'unsafe direct apply must remain disabled until verified Safe Mode exists'
 grep -Fq 'Live apply blocked: interactive Safe Mode has not been verified.' tools/routeros-safe-session.py || err 'Safe Mode driver must remain fail-closed until CHR evidence exists'
+grep -Fq 'test_driver_rejects_missing_command_file_before_any_network' tools/test-routeros-safe-session.py || err 'Safe Mode driver must test fail-closed behavior before network access'
 (( fail == 0 )) || exit 1
 echo 'Repository safety validation PASS'

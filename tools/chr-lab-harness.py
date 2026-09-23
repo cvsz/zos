@@ -38,6 +38,7 @@ import importlib.util
 MODULE_PATH = TOOLS_DIR / "routeros-safe-session.py"
 spec = importlib.util.spec_from_file_location("routeros_safe_session", MODULE_PATH)
 routeros_safe_session = importlib.util.module_from_spec(spec)
+sys.modules["routeros_safe_session"] = routeros_safe_session
 spec.loader.exec_module(routeros_safe_session)
 
 # Import names from the loaded module
@@ -96,7 +97,13 @@ class LabManifest:
     summary: dict = field(default_factory=dict)
 
     def to_json(self) -> str:
-        return json.dumps(self.__dict__, indent=2, default=str)
+        def _encoder(obj):
+            if isinstance(obj, bytes):
+                return obj.decode(errors="replace")
+            if hasattr(obj, "__dataclass_fields__"):
+                return asdict(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+        return json.dumps(self.__dict__, indent=2, default=_encoder)
 
 
 # --- Deterministic mock transport factories ---
@@ -228,14 +235,14 @@ def scenario_stale_nonce_spoof(nonce: str, markers: FramedMarkers) -> MockTransp
 
 
 def scenario_static_marker_spoof(nonce: str, markers: FramedMarkers) -> MockTransport:
-    """Static OMEGA_APPLY_PASS appears in command echo."""
+    """Static OMEGA_APPLY_PASS appears in command echo; must not be accepted as commit proof."""
     return create_mock_transport(
         responses=[
             b"] >",
             b"Taking Safe Mode session... Success!\r\n",
             b"<SAFE>\r\n",
             b"] > :put (\"OMEGA_APPLY_PASS\")\r\n",
-            b"OMEGA_APPLY_PASS\r\n",  # echo only
+            markers.pass_bytes + b"\r\n",  # current round pass marker in echo
             b"OMEGA_PHASE_FILE:00-PRECHECK.rsc\r\n",
             markers.fail_bytes + b"\r\n",
         ],
@@ -302,6 +309,22 @@ def scenario_commit_gate_requires_full_success(nonce: str, markers: FramedMarker
             b"OMEGA_PHASE_FILE:99-VERIFY-HEALTH.rsc\r\n",
             markers.pass_bytes + b"\r\n",
         ],
+    )
+
+
+def scenario_commit_gate_partial_phases(nonce: str, markers: FramedMarkers) -> MockTransport:
+    """Commit gate with phases cut out mid-execution; must rollback."""
+    return create_mock_transport(
+        responses=[
+            b"] >",
+            b"Taking Safe Mode session... Success!\r\n",
+            b"<SAFE>\r\n",
+            b"OMEGA_PHASE_FILE:00-PRECHECK.rsc\r\n",
+            b"OMEGA_PHASE_FILE:10-BACKUP-SNAPSHOT.rsc\r\n",
+            b"OMEGA_PHASE_FILE:90-EXPORT-EVIDENCE.rsc\r\n",
+        ],
+        disconnect_after=6,
+        exit_code=255,
     )
 
 
@@ -388,9 +411,12 @@ def run_event_driven_test(
             raise TimeoutError("Prompt never appeared")
         
         # --- SAFE MODE ENTRY ---
-        # Send Ctrl-X to enter Safe Mode
-        transport.write(b"\x18")
-        transcript.append({"direction": "send", "data": "\\x18"})
+        # Send Ctrl-X to enter Safe Mode (skip if auth already failed;
+        # exit_code 255 means authentication was rejected — no command
+        # must be sent to the router).
+        if transport.exit_code != 255:
+            transport.write(b"\x18")
+            transcript.append({"direction": "send", "data": "\\x18"})
         
         # Read Safe Mode response
         safe_mode_confirmed = False
@@ -615,21 +641,24 @@ def run_all_tests() -> LabManifest:
     for case, factory in SCENARIOS:
         print(f"Running {case.id}: {case.name} ... ", end="", flush=True)
         result = run_event_driven_test(case, factory)
+        if case.status == TestStatus.PASS:
+            case.status = "MOCK PASS"
         manifest.tests.append(case)
-        status_str = case.status.value
+        status_str = case.status if isinstance(case.status, str) else case.status.value
         if case.error:
             status_str += f" ({case.error})"
         print(f"{status_str} ({case.duration_ms}ms)")
 
-    # Summary
-    counts = {s: sum(1 for t in manifest.tests if t.status == s) for s in TestStatus}
-    manifest.summary = {k.value: v for k, v in counts.items()}
+    # Summary (MOCK PASS already mapped above)
+    all_statuses = ["MOCK PASS", "FAIL", "BLOCKED", "SKIPPED"]
+    counts = {s: sum(1 for t in manifest.tests if t.status == s) for s in all_statuses}
+    manifest.summary = counts
     manifest.completed_at = datetime.now(timezone.utc).isoformat()
 
     print()
     print(f"=== Summary ===")
     for status, count in counts.items():
-        print(f"  {status.value}: {count}")
+        print(f"  {status}: {count}")
 
     return manifest
 
@@ -812,6 +841,17 @@ SCENARIOS: List[tuple[TestCase, Callable[[str, FramedMarkers], MockTransport]]] 
             expected_conditions={"all_phases_completed": True, "commit_gate_satisfied": True},
         ),
         scenario_commit_gate_requires_full_success,
+    ),
+    (
+        TestCase(
+            id="SM-14",
+            name="Commit Gate Partial Phases",
+            description="Some phases missing; commit gate must not be satisfied; rollback",
+            scenario="commit_gate_partial_phases",
+            expected_action="rollback",
+            expected_conditions={"rollback_triggered": True},
+        ),
+        scenario_commit_gate_partial_phases,
     ),
 ]
 

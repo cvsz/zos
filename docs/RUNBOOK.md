@@ -78,6 +78,21 @@ make backup
 
 `make backup` creates a text export and an AES-SHA256 encrypted binary RouterOS backup with a unique `timestamp-pid-random` identifier. Both artifacts download into private `mktemp` staging as `.part` files, are validated nonempty, checksummed (SHA-256), then published atomically with `.sha256` sidecars and a `manifest.json` binding `backup_id/commit_sha/created_at/router_host/artifact sha256/bytes` (no passwords/secrets). The backup password travels via stdin pipe (never in ssh argv/ps), shell tracing is disabled around secrets, dirs are `700` and artifacts/manifest/password are `600`. Router temp files are removed only after the local verified copy is complete; partial/empty downloads never report success. Retention keeps the newest `OMEGA_BACKUP_RETENTION_COUNT` (default 30) sets without deleting the only verified copy; `OMEGA_BACKUP_OFFHOST_DIR` enables an optional best-effort off-host copy. Keep the local evidence outside source control. A backup file alone is not proof of recoverability until a restore drill succeeds on disposable CHR.
 
+Verify a backup set without restoring:
+
+~~~bash
+tools/restore-drill.sh --backup-id <omega-policedbc-...> --mock
+bash tools/topology-reconcile.sh
+~~~
+
+For a structured drift report from a sanitized snapshot (no production access):
+
+~~~bash
+tools/topology-reconcile.sh --snapshot <file> [--report <file>]
+~~~
+
+Live `--live` collection stays disabled unless `OMEGA_ALLOW_LIVE_AUDIT=1` with operator authorization, and it refuses production targets.
+
 ## 6. Dry-run intended phases
 
 ~~~bash
@@ -167,3 +182,7 @@ Use `docs/ROUTEROS-LAB-TEST-PLAN.md` to exercise Safe Mode rollback, ownership c
 ## 11. Acceptance
 
 Use `CHECKLIST.md` and `docs/PRODUCTION-READINESS.md`. Record the commit/release, relevant CI runs, pre-change audit, backup identifiers, current dry-run manifest, live-change approval if any, post-change verification, rollback outcome if exercised, and operator timestamp.
+
+## Offline Audit และข้อจำกัด
+
+ใช้ `bash tools/topology-reconcile.sh` และ `bash tools/test-topology-reconcile.sh` กับ Fixtures เพื่อตรวจ Contract โดยไม่แตะ Router; Audit Collector บังคับ Known Hosts และ SHA256 Fingerprint จากช่องทางอิสระ การทำงาน Live ต้องได้รับ Operator Approval แยกต่างหาก ขณะนี้ Safe Mode Live Apply ยังปิด และ CHR Restore ยังไม่ผ่านการทดสอบจริง

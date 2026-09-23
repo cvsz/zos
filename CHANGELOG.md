@@ -4,6 +4,9 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Recovery documentation and evidence taxonomy
+- เพิ่มคู่มือกู้คืนระบบภาษาไทยครบ 9 สถานการณ์, ปรับ Evidence Matrix ให้ตรง 17 Mock Scenarios และ 15 Live CHR Cases ที่ยัง BLOCKED, ซิงก์ README/Runbook/Readiness กับ Restore Drill และ Offline Audit โดยไม่อ้างว่า Production ผ่านการตรวจ
+
 ### Offline topology drift และ SSH read-only audit
 - เพิ่ม JSON Drift Report, ตรวจ LAN CIDR/Gateway, ชุด Fixture Tests และ Audit Collector ที่ต้องยืนยัน SSH Host Key ผ่าน Known Hosts; Error ของ SSH ไม่ถูกนับเป็น PASS และ Production Mutation ยังคงถูกปิด
 

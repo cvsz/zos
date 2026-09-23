@@ -35,7 +35,7 @@ Each lab run produces a JSON manifest with the following structure:
   "summary": {
     "PASS": 0,
     "FAIL": 0,
-    "BLOCKED": 13,
+    "BLOCKED": 15,
     "SKIPPED": 0
   }
 }
@@ -165,3 +165,7 @@ When CHR becomes available:
 - `docs/PRODUCTION-READINESS.md` — Production gates
 - `tools/routeros-safe-session.py` — Safe Mode driver (fail-closed)
 - `tools/chr-lab-harness.py` — This mock harness
+
+## การตรวจสอบ Machine-readable evidence
+
+`LabManifest.to_json()` ต้อง serialize `TestCase` ทุกตัวเป็น JSON object พร้อม `id`, `status`, `started_at`, `completed_at` และ `evidence` โดยแยก `MOCK PASS` จากผล CHR จริงอย่างชัดเจน ตัวเลขสรุปต้องคำนวณจาก `tests` ใน manifest ไม่ใช้จำนวนที่เขียนด้วยมือ ข้อมูลใน template ข้างต้นเป็นตัวอย่างโครงสร้าง ไม่ใช่ผลการทดสอบ CHR จริง

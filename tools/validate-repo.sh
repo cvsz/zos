@@ -21,7 +21,10 @@ required=(
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example config/wifi-single-network.env.example
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py tools/test-routeros-safe-session.py
+  tools/chr-lab-harness.py tools/test-chr-lab-harness-regression.py
   tools/test-backup-hardening.sh tools/restore-drill.sh tools/test-restore-drill.sh
+  tools/test-repo-security.sh tools/topology-reconcile.sh tools/test-topology-reconcile.sh
+  tools/routeros-audit.sh tools/test-routeros-audit.sh
   tools/migrate-legacy-dhcp.sh migrations/20260921-legacy-dhcp-quarantine.rsc
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
@@ -31,15 +34,16 @@ required=(
   .github/workflows/security-scan.yml .github/dependabot.yml
 )
 for f in "${required[@]}"; do [[ -f "$f" ]] || err "missing required file: $f"; done
-python3 -m py_compile tools/routeros-safe-session.py tools/test-routeros-safe-session.py || err 'RouterOS Safe Mode session driver failed Python syntax validation'
+python3 -m py_compile tools/routeros-safe-session.py tools/test-routeros-safe-session.py tools/chr-lab-harness.py tools/test-chr-lab-harness-regression.py || err 'RouterOS Safe Mode session driver failed Python syntax validation'
 python3 tools/test-routeros-safe-session.py || err 'RouterOS Safe Mode session regression tests failed'
+python3 tools/test-chr-lab-harness-regression.py || err 'CHR lab harness event-driven regression tests failed'
 
 grep -q '^CF_CONNECTOR_HOST=core\.zeaz\.dev$' cloudflare/config.env.example || err 'Cloudflare connector template is missing the approved CORE host'
 grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documentation is missing'
 if grep -Eiq '(^|_)(TOKEN|SECRET|PASSWORD|PRIVATE_KEY)=.+' cloudflare/config.env.example; then err 'Cloudflare template contains a populated credential'; fi
 grep -Fq 'cloudflare/config.env' .gitignore || err 'populated Cloudflare config is not ignored'
 
-executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/migrate-legacy-dhcp.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh tools/test-backup-hardening.sh tools/restore-drill.sh tools/test-restore-drill.sh zOS/bin/zos zOS/install.sh)
+executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/migrate-legacy-dhcp.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh tools/test-backup-hardening.sh tools/restore-drill.sh tools/test-restore-drill.sh tools/test-repo-security.sh tools/topology-reconcile.sh tools/test-topology-reconcile.sh zOS/bin/zos zOS/install.sh)
 for f in "${executables[@]}"; do [[ ! -f "$f" || -x "$f" ]] || err "operational entry point is not executable: $f"; done
 
 active=(00-PRECHECK.rsc 10-BACKUP-SNAPSHOT.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc 40-WIREGUARD-SERVICES.rsc 50-FIREWALL-NAT.rsc 60-OBSERVABILITY.rsc 90-EXPORT-EVIDENCE.rsc 99-VERIFY-HEALTH.rsc)
@@ -232,6 +236,12 @@ grep -Fq 'blocklist' tools/restore-drill.sh || err 'restore drill must refuse pr
 grep -Fq 'MOCK PASS' tools/restore-drill.sh || err 'restore drill must support mocked evidence without network'
 grep -Fq 'RD-04' tools/test-restore-drill.sh || err 'restore drill regression must test production refusal'
 bash tools/test-restore-drill.sh || err 'restore drill regression tests failed'
+grep -Fq '*.backup.password' .gitignore || err 'backup password sidecars must stay out of Git'
+bash tools/test-repo-security.sh || err 'repository security regression tests failed'
+bash tools/topology-reconcile.sh || err 'read-only topology reconciliation found disagreements'
+bash tools/test-routeros-audit.sh || err 'routeros audit collector regression tests failed'
+grep -Fq 'TOPO-02' tools/test-topology-reconcile.sh || err 'topology drift fixture regression missing'
+bash tools/test-topology-reconcile.sh || err 'topology drift fixture tests failed'
 if grep -Fq "\"\$CORE\" check || true" zOS/bin/zos; then err 'zOS doctor must propagate CORE structural failures'; fi
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'

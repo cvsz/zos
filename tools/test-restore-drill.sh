@@ -16,17 +16,17 @@ make_backup_set() {
   printf 'mock export for %s\n' "$id" > "$dir/$id.rsc"
   printf 'mock binary for %s with enough bytes to look real\n' "$id" > "$dir/$id.backup"
   (cd "$dir" && sha256sum "$id.rsc" > "$id.rsc.sha256" && sha256sum "$id.backup" > "$id.backup.sha256")
-  local rsc_sha bin_sha
+  local rsc_sha bin_sha rsc_size bin_size
   rsc_sha="$(sha256sum "$dir/$id.rsc" | awk '{print $1}')"
   bin_sha="$(sha256sum "$dir/$id.backup" | awk '{print $1}')"
+  rsc_size="$(stat -c%s "$dir/$id.rsc" 2>/dev/null || echo 0)"
+  bin_size="$(stat -c%s "$dir/$id.backup" 2>/dev/null || echo 0)"
   cat > "$dir/$id.manifest.json" <<EOF
 {"backup_id": "$id", "commit_sha": "test-commit", "created_at": "2026-09-22T00:00:00Z",
  "router_host": "chr-lab", "router_user": "admin", "router_version": "7.25",
- "artifacts": [{"name": "$id.rsc", "sha256": "$rsc_sha", "bytes": 10}, {"name": "$id.backup", "sha256": "$bin_sha", "bytes": 10}],
+ "artifacts": [{"name": "$id.rsc", "sha256": "$rsc_sha", "size": $rsc_size}, {"name": "$id.backup", "sha256": "$bin_sha", "size": $bin_size}],
  "password_file": "$id.backup.password"}
 EOF
-  printf 'testPASSWORD-1234_ABCD-xyz-%s\n' "$id" > "$pwdir/$id.backup.password"
-  # Ensure password meets format (>=24, allowed chars only)
   printf 'ABCD1234abcd1234ABCD1234xyz\n' > "$pwdir/$id.backup.password"
 }
 
@@ -40,7 +40,7 @@ if OUT="$(bash "$DRILL" --backup-id "$ID1" --backup-dir "$T1/backups" --password
 else
   bad "RD-01 mock drill failed: $OUT"
 fi
-EV1="$ROOT/artifacts/restore-drill/manifest-$ID1.json"
+EV1="$(find "$ROOT/artifacts/restore-drill" -maxdepth 1 -name 'manifest-*-000001-1-aabbccdd-*.json' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2)"
 if [[ -s "$EV1" ]] && grep -Fq '"status": "MOCK PASS"' "$EV1" && grep -Fq '"elapsed_ms"' "$EV1"; then
   ok "RD-01 MOCK PASS evidence with elapsed time"
 else

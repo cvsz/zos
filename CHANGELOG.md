@@ -4,6 +4,9 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Restore Drill — clean main integration
+- เพิ่ม Restore Drill ที่ตรวจ Schema ของ Backup Pipeline จริง (`bytes`), Manifest Provenance, ชื่อ Artifact และ SHA-256 จากไฟล์โดยตรง พร้อม Regression Tests โดยยังปิด Live CHR Restore และไม่เชื่อมต่อ Production
+
 ### CHR lab harness regression suite - Python 3.14 compatibility (Phase B)
 - แก้ `tools/test-chr-lab-harness-regression.py` ที่ crash ด้วย `AttributeError` บน Python 3.14: ลงทะเบียน dynamically loaded modules ใน `sys.modules` ก่อน `exec_module` (จำเป็นสำหรับ `@dataclass` processing)
 - เขียนชุดทดสอบใหม่ 9 เคสให้ใช้ event-driven API ปัจจุบัน (`run_event_driven_test`, `expected_action`/`expected_conditions`) แทน `run_scenario_test`/`expected` ที่ไม่มีอยู่แล้ว; ทุกเคส assert ว่า failure condition ถูก exercise และ detect จริงผ่าน `transport.read()`/`write()` (connection/auth/prompt timeout, Safe Mode refusal, hijack, static/stale spoof rejection, disconnect, commit gate)

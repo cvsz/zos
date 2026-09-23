@@ -68,6 +68,13 @@ if [[ -z "${OMEGA_AUDIT_AUTHORIZED_BY:-}" ]]; then
   exit 3
 fi
 
+# An operator-reviewed known_hosts file is required; /dev/null cannot pin host keys.
+KNOWN_HOSTS="${OMEGA_AUDIT_KNOWN_HOSTS:-$ROOT/state/audit-known-hosts}"
+[[ -s "$KNOWN_HOSTS" && -r "$KNOWN_HOSTS" ]] || { echo 'ERROR: operator-provided known_hosts is required' >&2; exit 3; }
+[[ "$FINGERPRINT" =~ ^SHA256:[A-Za-z0-9+/]{20,}=?$ ]] || { echo 'ERROR: invalid SHA256 host-key fingerprint' >&2; exit 3; }
+HOST_KEY_LIST="$(ssh-keygen -lf "$KNOWN_HOSTS" -E sha256 2>/dev/null)" || { echo 'ERROR: invalid pinned known_hosts' >&2; exit 3; }
+grep -Fq "$FINGERPRINT" <<<"$HOST_KEY_LIST" || { echo 'ERROR: host-key fingerprint mismatch' >&2; exit 3; }
+
 START_MS="$(date +%s%3N 2>/dev/null || date +%s)"
 START_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 COMMIT_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf 'unknown')"
@@ -89,7 +96,6 @@ ALLOWED_COMMANDS=(
   "/ip firewall nat print"
   "/ip service print"
   "/ip user print"
-  "/ip user ssh-keys print"
   "/interface print"
   "/interface ethernet print"
   "/interface bridge print"
@@ -97,7 +103,6 @@ ALLOWED_COMMANDS=(
   "/interface vlan print"
   "/interface wireguard print"
   "/interface wireguard peers print"
-  "/ip cloud print"
   "/system ntp client print"
   "/system ntp server print"
 )
@@ -106,41 +111,33 @@ XTRACE_WAS_ON=0
 if [[ $- == *x* ]]; then XTRACE_WAS_ON=1; fi
 set +x
 
-# shellcheck disable=SC2329
-fail_closed() {
-  local msg="$1"
-  local elapsed_ms="$2"
-  echo "ERROR: $msg" >&2
-  {
-    printf '{\n  "run_id": "%s",\n  "commit_sha": "%s",\n' "$RUN_ID" "$COMMIT_SHA"
-    printf '  "target": "%s",\n  "started_at": "%s",\n' "$TARGET" "$START_ISO"
-    printf '  "completed_at": "%s",\n  "elapsed_ms": %s,\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$elapsed_ms"
-    printf '  "status": "FAIL",\n  "error": "%s"\n' "$msg"
-    printf '}\n'
-  } > "${OUTPUT:-/dev/stdout}"
-  if (( XTRACE_WAS_ON )); then set -x; fi
-  return 1
-}
-
 ALLOWED_CMDS_JSON="$(printf '%s\n' "${ALLOWED_COMMANDS[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')"
 
 ELAPSED="$( (date +%s%3N 2>/dev/null || date +%s) )"
 ELAPSED=$(( ELAPSED - START_MS ))
 
-RAW_RESULT="$(
-  for cmd in "${ALLOWED_COMMANDS[@]}"; do
-    echo "=== CMD: $cmd ==="
-    ssh -o BatchMode=yes \
+RAW_RESULT=""
+COMMAND_FAILURES=0
+for cmd in "${ALLOWED_COMMANDS[@]}"; do
+  # All commands are a static allowlist; an SSH failure must never be reported PASS.
+  if command_output="$(ssh -o BatchMode=yes \
       -o StrictHostKeyChecking=yes \
-      -o UserKnownHostsFile=/dev/null \
+      -o UserKnownHostsFile="$KNOWN_HOSTS" \
       -o PreferredAuthentications=publickey \
       -o IdentityFile="$IDENTITY" \
       -o ConnectTimeout="$TIMEOUT" \
       -o NumberOfPasswordPrompts=0 \
-      "$TARGET" \
-      "echo '__BEGIN__'; $cmd; echo '__END__'" 2>&1 || echo "(command failed or timed out)"
-  done
-)"
+      "$TARGET" "$cmd" 2>&1)"; then
+    RAW_RESULT+="=== CMD: $cmd ==="$'\n'"$command_output"$'\n'
+  else
+    COMMAND_FAILURES=$((COMMAND_FAILURES + 1))
+    RAW_RESULT+="=== CMD: $cmd FAILED ==="$'\n'
+  fi
+done
+if (( COMMAND_FAILURES > 0 )); then
+  echo "ERROR: read-only audit incomplete; failed commands: $COMMAND_FAILURES" >&2
+  exit 1
+fi
 
 SANITIZED="$(printf '%s' "$RAW_RESULT" | python3 -c '
 import json, sys, re

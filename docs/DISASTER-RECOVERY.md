@@ -1,37 +1,37 @@
 # Disaster Recovery
 
-## Priority order
+## ลำดับความสำคัญ
 
-1. regain a trusted local/MAC/console/recovery management path;
-2. restore RouterOS LAN management (`192.168.1.1/24`);
-3. restore WAN/upstream routing;
-4. restore DHCP/DNS;
-5. restore WireGuard with trusted known key material;
-6. restore CORE route/SSH invariants;
-7. verify firewall/NAT and application reachability;
-8. capture post-recovery evidence.
+1. กู้คืนช่องทางบริหารจัดการที่เชื่อถือได้ผ่าน local/MAC/console/recovery;
+2. กู้คืนการบริหาร RouterOS ผ่าน LAN (`192.168.1.1/24`);
+3. กู้คืน WAN/upstream routing;
+4. กู้คืน DHCP/DNS;
+5. กู้คืน WireGuard ด้วย key material ที่เชื่อถือได้และทราบที่มา;
+6. กู้คืน CORE route/SSH invariants;
+7. ตรวจสอบ firewall/NAT และ application reachability;
+8. เก็บหลักฐานหลังการกู้คืน.
 
 ## RouterOS Safe Mode
 
-Use Safe Mode for risky changes where supported. An abnormal loss of the Safe Mode session can roll back those changes, but Safe Mode is not a substitute for an export and backup.
+ใช้ Safe Mode สำหรับการเปลี่ยนแปลงที่มีความเสี่ยงในกรณีที่ RouterOS รองรับ การหลุดของ Safe Mode session แบบผิดปกติสามารถทำให้การเปลี่ยนแปลงถูก rollback ได้ แต่ Safe Mode ไม่ใช่สิ่งทดแทน export และ backup.
 
 ## Backups
 
-Text exports are reviewable recovery inputs. Binary `.backup` files are sensitive and device/configuration-specific; keep them protected and out of Git. Generated backup passwords are stored separately under `state/backup-secrets/` by default (override with `OMEGA_BACKUP_PASSWORD_DIR`); protect both locations and never publish either.
+Text export เป็นข้อมูลสำหรับกู้คืนที่ตรวจสอบได้ ส่วนไฟล์ binary `.backup` เป็นข้อมูลอ่อนไหวและผูกกับ device/configuration จึงต้องเก็บให้ปลอดภัยและอยู่นอก Git โดยค่าเริ่มต้น backup password ที่สร้างขึ้นจะถูกเก็บแยกไว้ใต้ `state/backup-secrets/` (เปลี่ยนได้ด้วย `OMEGA_BACKUP_PASSWORD_DIR`) ต้องปกป้องทั้งสองตำแหน่งและห้ามเผยแพร่.
 
-Each successful controller backup publishes `omega-policedbc-<timestamp-pid-random>.rsc/.backup` with `.sha256` sidecars and a `<id>.manifest.json` binding `backup_id/commit_sha/created_at/router_host/artifact checksums` (no secrets). Downloads stage as private `.part` files, require both artifacts nonempty, then publish atomically; partial/empty results never report success and never publish a manifest. Router temp files are cleaned best-effort only after the local verified copy exists, without masking the original error. Retention (`OMEGA_BACKUP_RETENTION_COUNT`, default 30) never deletes the only verified copy; `OMEGA_BACKUP_OFFHOST_DIR` holds an optional off-host copy. A backup file existing is not restore evidence — exercise `tools/restore-drill.sh` on disposable CHR before declaring recoverability.
+ทุก controller backup ที่สำเร็จจะ publish `omega-policedbc-<timestamp-pid-random>.rsc/.backup` with `.sha256` sidecars and a `<id>.manifest.json` binding `backup_id/commit_sha/created_at/router_host/artifact checksums` (no secrets). Downloads stage as private `.part` files, require both artifacts nonempty, then publish atomically; partial/empty results never report success and never publish a manifest. Router temp files are cleaned best-effort only after the local verified copy exists, without masking the original error. Retention (`OMEGA_BACKUP_RETENTION_COUNT`, default 30) never deletes the only verified copy; `OMEGA_BACKUP_OFFHOST_DIR` holds an optional off-host copy. การมีไฟล์ backup อยู่เฉย ๆ ไม่ใช่ restore evidence — exercise `tools/restore-drill.sh` on disposable CHR before declaring recoverability.
 
-## Restore drill (disposable CHR only)
+## Restore drill (เฉพาะ disposable CHR)
 
 ~~~bash
 tools/restore-drill.sh --backup-id <omega-policedbc-...> --mock
 ~~~
 
-The drill verifies manifest integrity, both SHA-256 checksums, provenance and password availability before any restore, refuses production targets via blocklist even with authorization, and requires `--allow-live-restore` plus `OMEGA_ALLOW_LIVE_RESTORE=1`, `OMEGA_CHR_ISOLATED=1`, `OMEGA_CHR_AUTHORIZED_BY=<operator>` and a proven SSH management path for live use. Mock mode records `MOCK PASS` with elapsed time and sanitized evidence under `artifacts/restore-drill/`; live CHR execution without a verified isolated target stays `BLOCKED` with no mutation. Never restore production from a backup without an independent recovery path and explicit approval.
+Drill นี้ตรวจสอบ manifest integrity, SHA-256 ของทั้งสอง artifact, provenance และการมีอยู่ของ password ก่อน restore ทุกครั้ง ปฏิเสธ production target ผ่าน blocklist แม้จะมี authorization และกำหนดให้มี `--allow-live-restore` plus `OMEGA_ALLOW_LIVE_RESTORE=1`, `OMEGA_CHR_ISOLATED=1`, `OMEGA_CHR_AUTHORIZED_BY=<operator>` and a proven SSH management path for live use. Mock mode จะบันทึก `MOCK PASS` พร้อม elapsed time และ sanitized evidence ใต้ `artifacts/restore-drill/`; การรันกับ CHR จริงโดยไม่มี target ที่แยกและยืนยันแล้วต้องคงสถานะ `BLOCKED` และห้าม mutation ห้าม restore production จาก backup หากไม่มี independent recovery path และ explicit approval.
 
-## CORE route recovery
+## การกู้คืน CORE route
 
-Required state:
+สถานะที่ต้องได้:
 
 ~~~text
 default via 192.168.1.1 dev ens33
@@ -39,17 +39,17 @@ default via 192.168.1.1 dev ens33
 10.8.0.0/24 dev policedbc
 ~~~
 
-Use `docs/NETWORK-RECOVERY.md`. Persistent `policedbc` `AllowedIPs` must not include the physical LAN.
+ใช้ `docs/NETWORK-RECOVERY.md` โดย persistent `policedbc` `AllowedIPs` ต้องไม่รวม physical LAN.
 
-## CORE SSH recovery
+## การกู้คืน CORE SSH
 
-Use `core/install.sh` / `docs/SSH-HARDENING.md`. Do not disable the last working authentication path. Prove public-key access from a separate client before closing the recovery session.
+ใช้ `core/install.sh` / `docs/SSH-HARDENING.md` ห้ามปิด authentication path สุดท้ายที่ยังใช้งานได้ และต้องพิสูจน์ public-key access จาก client อื่นก่อนปิด recovery session.
 
 ## Package/APT trust failure
 
-If a third-party repository signature cannot be verified, preserve signature enforcement and repair trust from reviewed authoritative key material. Never restore service by enabling insecure APT trust globally.
+หากตรวจสอบ signature ของ third-party repository ไม่ได้ ให้คง signature enforcement ไว้และซ่อม trust จาก authoritative key material ที่ผ่าน review แล้ว ห้ามกู้ service ด้วยการเปิด insecure APT trust แบบ global.
 
-## GitHub runner recovery
+## การกู้คืน GitHub runner
 
 Runner path/task:
 
@@ -58,15 +58,15 @@ D:\zOS-Runner
 Scheduled Task: zOS-GitHub-Runner
 ~~~
 
-Restart the single scheduled listener before considering re-registration. Preserve runner credentials and never commit them.
+ให้ restart scheduled listener ตัวเดิมก่อนพิจารณา re-registration ต้องรักษา runner credentials และห้าม commit.
 
-## Recovery verification
+## การตรวจสอบหลังการกู้คืน
 
-After recovery, repeat repository validation where code changed, then live CORE/router checks. Reboot tests are required when the incident involved persistent network or SSH configuration.
+หลัง recovery ให้รัน repository validation ซ้ำในส่วนที่มี code change แล้วจึงตรวจ CORE/router จริง หาก incident เกี่ยวข้องกับ persistent network หรือ SSH configuration ต้องมี reboot test.
 
 ## Disaster-recovery exercise
 
-A DR plan is not fully evidenced until restore/rollback has been exercised in an appropriate environment and the result recorded. CI passing is not restore evidence.
+DR plan จะยังไม่ถือว่ามีหลักฐานครบจนกว่าจะ exercise restore/rollback ใน environment ที่เหมาะสมและบันทึกผลไว้ การที่ CI ผ่านไม่ใช่ restore evidence.
 
 
 ## Golden RB4011 clean rebuild

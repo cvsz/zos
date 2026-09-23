@@ -27,7 +27,7 @@ else
 fi
 
 # SEC-SCAN-01: committed tree must not contain private key blocks or literal secrets
-if grep -RInE --exclude-dir=.git --exclude-dir=artifacts --exclude='*.jsonl' 'BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' "$ROOT" 2>/dev/null | grep -q .; then
+if git -C "$ROOT" grep -InE 'BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' $(git -C "$ROOT" ls-files) 2>/dev/null | grep -q .; then
   bad "SEC-SCAN private key block committed"
 else
   ok "SEC-SCAN no committed private key blocks"

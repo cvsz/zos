@@ -89,69 +89,69 @@ No WireGuard private key is committed. A clean rebuild generates a new router Wi
 
 After the golden bootstrap succeeds, run the current guarded phase stack and `99-VERIFY-HEALTH.rsc`. A successful golden import alone is not production acceptance.
 
-## Management recovery runbooks (practical, fail-closed)
+## คู่มือกู้คืนระบบ (fail-closed, ปฏิบัติได้จริง)
 
-General rules for every scenario below: keep an independent management path (local console/MAC-WinBox/second SSH) open; never disable the last working authentication path; define rollback triggers before mutating; record operator decision points; repeat post-recovery verification (management, WAN/default route, LAN/DHCP/DNS, WireGuard, firewall/NAT, intended services).
+หลักการทั่วไปสำหรับทุกสถานการณ์ด้านล่าง: เปิดเส้นทางการจัดการที่เป็นอิสระ (คอนโซล lokal / MAC-WinBox / SSH ลำดับที่สอง) ทิ้งไว้ก่อนปิด; ห้ามปิดเส้นทางรับรองสุดท้ายที่ใช้งานอยู่; กำหนดจุดเรียกคืนก่อนเปลี่ยนแปลง; บันทึกจุดตัดสินใจของผู้ดำเนินการ; ทำซ้ำการตรวจสอบหลังกู้คืน (การจัดการ, เส้นทาง WAN/default route, LAN/DHCP/DNS, WireGuard, firewall/NAT, บริการที่ตั้งใจ)
 
-### 1. SSH authentication failure
-- Independent access: use console/MAC-WinBox or a second SSH session that is already authenticated; do not close it.
-- Diagnose: `make status` (read-only), check `/user print`, `/ip service print`, SSH key fingerprints on router vs controller (`ROUTER_SSH_KEY`).
-- Rollback triggers: any change that risks key-only lockout stops immediately; restore prior `/user ssh-keys` from export.
-- Decision: rotate/add keys only with `core/install-ssh-key.sh --host <ip> --user <user> --private-key <key>` and prove login from a separate client before closing recovery.
-- Verify: independent key login, `PermitRootLogin no`, password auth unchanged per contract.
+### 1. ข้อผิดพลาดการพิสูจน์ตัวตน SSH
+- การเข้าถึงที่เป็นอิสระ: ใช้คอนโซล/MAC-WinBox หรือ SSH ลำดับที่สองที่พิสูจน์ตัวตนแล้ว; อย่าปิด
+- วินิจฉัย: `make status` (read-only), ตรวจสอบ `/user print`, `/ip service print`, SSH key fingerprint ของ router เทียบกับ controller (`ROUTER_SSH_KEY`)
+- จุดเรียกคืน: การเปลี่ยนแปลงที่เสี่ยงต่อการล็อกอินแบบ key-only ต้องหยุดทันที; คืน `/user ssh-keys` ก่อนจาก export
+- การตัดสินใจ: หมุน/เพิ่ม keys เฉพาะกับ `core/install-ssh-key.sh --host <ip> --user <user> --private-key <key>` และพิสูจน์การเข้าสู่ระบบจากไคลเอ็นต์แยกก่อนปิด recovery
+- ตรวจสอบ: การเข้าสู่ระบบด้วย key อิสระ, `PermitRootLogin no`, password auth ไม่เปลี่ยนแปลงตาม contract
 
-### 2. Management access lockout (SSH + WinBox)
-- Independent access: physical console or MAC-WinBox on the LAN segment; never reboot blindly.
-- Diagnose: `/ip service print`, `/user print`, firewall `ZEAZ-PoliceDBC-INPUT` for foreign accept/drop covering management ports.
-- Rollback triggers: if Safe Mode is available, enter it before touching firewall/services; abnormal disconnect must roll back.
-- Decision: re-enable LAN/VPN-only management from console; remove only the offending zOS-owned rule (comment `^PoliceDBC:`), never bulk-delete filter/NAT.
-- Verify: SSH + WinBox from LAN, services limited to approved interfaces, audit log reviewed.
+### 2. การสูญเสียสิทธิ์เข้าถึง (SSH + WinBox)
+- การเข้าถึงที่เป็นอิสระ: คอนโซลทางกายภาพหรือ MAC-WinBox บน LAN segment; ห้ามรีบูตแบบไม่ไตร่ตรอง
+- วินิจฉัย: `/ip service print`, `/user print`, firewall `ZEAZ-PoliceDBC-INPUT` สำหรับ foreign accept/drop ที่ครอบคลุม management ports
+- จุดเรียกคืน: หาก Safe Mode มีอยู่ ให้เข้าก่อนแตะ firewall/services; การขาดการเชื่อมต่อที่ผิดปกติต้อง rollback
+- การตัดสินใจ: เปิดใช้งาน LAN/VPN-only management ใหม่จาก console; ลบเฉพาะ zOS-owned rule ที่ผิดพลาด (comment `^PoliceDBC:`) ห้ามลบ filter/NAT เป็นกลุ่ม
+- ตรวจสอบ: SSH + WinBox จาก LAN, services จำกัดเฉพาะ interfaces ที่อนุมัติ, ตรวจสอบ audit log
 
-### 3. Incorrect default route
-- Independent access: LAN-side management (route change must not orphan the operator).
-- Diagnose: `/ip route print detail where dst-address=0.0.0.0/0`, `/ip dhcp-client print`, `ether1` status; compare with `00-PRECHECK.rsc` expectations (DHCP WAN on `ether1`).
-- Rollback triggers: loss of upstream ping (`192.168.200.1`, `1.1.1.1`) or loss of management stops further changes; re-apply prior route/DHCP-client state.
-- Decision: fix DHCP-client/default-route only in an approved window with Safe Mode; never change WAN without recovery access.
-- Verify: default via DHCP, `make verify` upstream/internet/DNS checks pass.
+### 3. เส้นทาง default route ไม่ถูกต้อง
+- การเข้าถึงที่เป็นอิสระ: การจัดการทาง LAN (การเปลี่ยนเส้นทางต้องไม่ทิ้ง operator ให้หลงทาง)
+- วินิจฉัย: `/ip route print detail where dst-address=0.0.0.0/0`, `/ip dhcp-client print`, `ether1` status; เปรียบเทียบกับ `00-PRECHECK.rsc` (DHCP WAN บน `ether1`)
+- จุดเรียกคืน: สูญเสีย upstream ping (`192.168.200.1`, `1.1.1.1`) หรือสูญเสีย management → หยุดการเปลี่ยนแปลงเพิ่มเติม; คืนค่า route/DHCP-client ก่อน
+- การตัดสินใจ: แก้ไข DHCP-client/default-route เฉพาะใน approved window พร้อม Safe Mode; ห้ามเปลี่ยน WAN โดยไม่มี recovery access
+- ตรวจสอบ: default via DHCP, `make verify` upstream/internet/DNS checks ผ่าน
 
-### 4. LAN or DHCP outage (`192.168.1.0/24`)
-- Independent access: direct LAN/console; keep static-IP client ready (e.g., `192.168.1.10/24` via `DBC-Bridge-Local`).
-- Diagnose: `/ip address print`, `/ip pool print`, `/ip dhcp-server print/network/lease`, `lan-pool` ranges vs contract; check `next-pool=none`.
-- Rollback triggers: new leases failing or fixed inventory (`.50-.58`, `.100`, `.122`, `.123`) conflicting stops the change.
-- Decision: converge pool/network/DNS only to the verified contract; quarantine legacy pools via `make migrate-legacy-dhcp` gates, never delete pool objects broadly.
-- Verify: fixed reservations present, dynamic leases succeed, `wifi.zeaz.dev/core/prod` DNS resolve, reboot persistence if changed.
+### 4. LAN หรือ DHCP ล่ม (`192.168.1.0/24`)
+- การเข้าถึงที่เป็นอิสระ: LAN/console โดยตรง; เตรียม static-IP client พร้อม (เช่น `192.168.1.10/24` ผ่าน `DBC-Bridge-Local`)
+- วินิจฉัย: `/ip address print`, `/ip pool print`, `/ip dhcp-server print/network/lease`, `lan-pool` ranges เทียบกับ contract; ตรวจสอบ `next-pool=none`
+- จุดเรียกคืน: new leases ล้มเหลวหรือ fixed inventory (`.50-.58`, `.100`, `.122`, `.123`) ขัดแย้ง → หยุดการเปลี่ยนแปลง
+- การตัดสินใจ: pool/network/DNS convergence เฉพาะ contract ที่ verified; quarantine legacy pools ผ่าน `make migrate-legacy-dhcp` gates ห้ามลบ pool objects กว้าง
+- ตรวจสอบ: fixed reservations มีอยู่, dynamic leases สำเร็จ, `wifi.zeaz.dev/core/prod` DNS resolve, reboot persistence หากเปลี่ยน
 
-### 5. Firewall rule lockout
-- Independent access: console/MAC-WinBox; keep a Safe Mode session where supported.
-- Diagnose: `/ip firewall filter print` in `ZEAZ-PoliceDBC-INPUT/FORWARD`, jump counters, recent change diff.
-- Rollback triggers: management drop after a firewall phase → let Safe Mode unroll (abnormal close) instead of committing.
-- Decision: remove/disable only the specific zOS-owned rule (`comment~"^PoliceDBC:"`); never flush chains or remove foreign rules automatically.
-- Verify: management + intended service reachability, `OWN-02/OWN-03` ownership expectations hold.
+### 5. firewall rule lockout
+- การเข้าถึงที่เป็นอิสระ: คอนโซล/MAC-WinBox; รักษา Safe Mode session ที่รองรับ
+- วินิจฉัย: `/ip firewall filter print` ใน `ZEAZ-PoliceDBC-INPUT/FORWARD`, jump counters, recent change diff
+- จุดเรียกคืน: management drop หลัง firewall phase → ให้ Safe Mode unroll (abnormal close) แทน commit
+- การตัดสินใจ: ลบ/ปิดใช้งานเฉพาะ zOS-owned rule (`comment~"^PoliceDBC:"`); ห้าม flush chains หรือลบ foreign rules โดยอัตโนมัติ
+- ตรวจสอบ: management + intended service reachability, `OWN-02/OWN-03` ownership expectations คงอยู่
 
-### 6. WireGuard loss (`wg-remote`/`policedbc`)
-- Independent access: LAN/SSH without VPN dependency; do not rotate keys silently.
-- Diagnose: `/interface wireguard print/peers print`, handshake timestamps, `AllowedIPs` must exclude `192.168.1.0/24`, CORE `10.8.0.0/24 via policedbc`.
-- Rollback triggers: handshake failure after peer change → revert to trusted known key material from pre-change export.
-- Decision: reconcile router public key (`OMEGA WG ROUTER PUBLIC KEY=...`) on CORE explicitly before VPN acceptance; no private key in Git.
-- Verify: handshake recent, `10.8.0.0/24` routes via `policedbc`, LAN excluded from `AllowedIPs`.
+### 6. WireGuard สูญหาย (`wg-remote`/`policedbc`)
+- การเข้าถึงที่เป็นอิสระ: LAN/SSH ไม่ต้องพึ่ง VPN; ห้ามหมุน keys โดยไม่แจ้ง
+- วินิจฉัย: `/interface wireguard print/peers print`, handshake timestamps, `AllowedIPs` ต้องยกเว้น `192.168.1.0/24`, CORE `10.8.0.0/24 via policedbc`
+- จุดเรียกคืน: handshake failure หลัง peer change → ย้อนกลับไปยัง trusted known key material จาก pre-change export
+- การตัดสินใจ: reconcile router public key (`OMEGA WG ROUTER PUBLIC KEY=...`) บน CORE โดยชัดเจนก่อน VPN acceptance; ไม่มี private key ใน Git
+- ตรวจสอบ: handshake recent, `10.8.0.0/24` routes via `policedbc`, LAN excluded จาก `AllowedIPs`
 
-### 7. Failed RouterOS deployment (apply-safe)
-- Independent access: second management session for rollback verification.
-- Diagnose: collect sanitized transcript, phase marker (`OMEGA_PHASE_FILE:`), nonce-bound pass/fail, health output; confirm Safe Mode released vs unrolled.
-- Rollback triggers: script error, timeout, disconnect, stale Safe Mode, concurrent apply, failed health → do not commit; close session, require independent rollback verification.
-- Decision: fix phase content, re-run `make dry-run` (fresh manifest), then single smallest idempotent apply in a new window.
-- Verify: `99-VERIFY-HEALTH.rsc` sentinel, management/WAN/LAN/DHCP/WireGuard/firewall checks.
+### 7. RouterOS deployment ล้มเหลว (apply-safe)
+- การเข้าถึงที่เป็นอิสระ: management session ลำดับที่สองสำหรับ rollback verification
+- วินิจฉัย: รวบรวม sanitized transcript, phase marker (`OMEGA_PHASE_FILE:`), nonce-bound pass/fail, health output; ยืนยัน Safe Mode released vs unrolled
+- จุดเรียกคืน: script error, timeout, disconnect, stale Safe Mode, concurrent apply, failed health → ห้าม commit; ปิด session, ต้องการ rollback verification อย่างอิสระ
+- การตัดสินใจ: แก้ไข phase content, รัน `make dry-run` (fresh manifest) ใหม่, แล้ว single smallest idempotent apply ใน window ใหม่
+- ตรวจสอบ: `99-VERIFY-HEALTH.rsc` sentinel, management/WAN/LAN/DHCP/WireGuard/firewall checks
 
-### 8. Failed backup or restore
-- Independent access: controller shell with `backups/` + `state/backup-secrets/` intact; never delete the only verified copy.
-- Diagnose: backup manifest (both artifacts, SHA-256, nonempty, atomic publish) or restore-drill evidence (`MOCK PASS`/`FAIL`/`BLOCKED`, elapsed, checks); inspect for partial/empty/tamper without printing secrets.
-- Rollback triggers: checksum/provenance/password failure stops before any restore; production target always refused.
-- Decision: re-run `make backup` (new unique ID), then `tools/restore-drill.sh --mock`; live restore only on disposable CHR with full authorization gates.
-- Verify: new manifest validates, `sha256sum -c` passes, restore-drill evidence archived, off-host copy reconciled if configured.
+### 8. Backup หรือ restore ล้มเหลว
+- การเข้าถึงที่เป็นอิสระ: controller shell ที่มี `backups/` + `state/backup-secrets/` สมบูรณ์; ห้ามลบสำเนาที่ verified เพียงชุดเดียว
+- วินิจฉัย: backup manifest (ทั้งสอง artifacts, SHA-256, nonempty, atomic publish) หรือ restore-drill evidence (`MOCK PASS`/`FAIL`/`BLOCKED`, elapsed, checks); ตรวจสอบ partial/empty/tamper โดยไม่พิมพ์ secrets
+- จุดเรียกคืน: checksum/provenance/password failure → หยุดก่อน restore ใดๆ; production target ปฏิเสธเสมอ
+- การตัดสินใจ: รัน `make backup` (unique ID ใหม่), แล้ว `tools/restore-drill.sh --mock`; live restore เฉพาะบน disposable CHR พร้อม full authorization gates
+- ตรวจสอบ: manifest ใหม่ validates, `sha256sum -c` ผ่าน, restore-drill evidence archived, off-host copy reconciled หากตั้งค่าไว้
 
-### 9. CHR recovery after an interrupted restore
-- Independent access: hypervisor console + isolated CHR management on lab VLAN only; confirm no route to production.
-- Diagnose: CHR state (boot, identity, version, file list), last restore-drill evidence, elapsed time, before/after sanitized diffs.
-- Rollback triggers: uncertain CHR state → destroy and re-provision disposable CHR from known image (URL + SHA-256 recorded); never reuse production credentials/keys.
-- Decision: re-run golden bootstrap on a clean target (prove `GR-01` refusal first if state remains), then restore drill again; record actual elapsed recovery time.
-- Verify: RouterOS version, configuration contract, management access, networking, expected services; archive sanitized before/after evidence; teardown disposable CHR.
+### 9. CHR กู้คืนหลัง restore หยุดชะงัก
+- การเข้าถึงที่เป็นอิสระ: hypervisor console + isolated CHR management บน lab VLAN เท่านั้น; ยืนยัน no route สู่ production
+- วินิจฉัย: CHR state (boot, identity, version, file list), restore-drill evidence ล่าสุด, elapsed time, before/after sanitized diffs
+- จุดเรียกคืน: uncertain CHR state → destroy และ re-provision disposable CHR จาก known image (URL + SHA-256 บันทึก); ห้าม reuse production credentials/keys
+- การตัดสินใจ: รัน golden bootstrap บน clean target (พิสูจน์ `GR-01` refusal ก่อนหาก state ยังไม่สมบูรณ์), แล้ว restore drill อีกครั้ง; บันทึก actual elapsed recovery time
+- ตรวจสอบ: RouterOS version, configuration contract, management access, networking, expected services; archive sanitized before/after evidence; teardown disposable CHR

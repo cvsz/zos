@@ -105,6 +105,10 @@ def test_auth_failure_detected_from_transport():
           "transport.read() never consumed the Permission denied response")
     check(result.conditions_met.get("auth_failed") is True,
           f"auth_failed not detected: {result.conditions_met}")
+    check(result.transport.writes == [],
+          "no write must occur without authentication")
+    check(result.final_state != harness.SessionState.SAFE_MODE_CONFIRMED,
+          "must not reach Safe Mode after auth failure")
     check(result.action == "rollback", f"expected rollback, got {result.action}")
     check(case.status == TestStatus.PASS, f"case status {case.status}: {case.error}")
 
@@ -159,17 +163,17 @@ def test_hijack_attempt_refused():
 
 
 def test_static_marker_spoof_rejected():
-    """SM-09: static OMEGA_APPLY_PASS ใน echo ต้องไม่ถูกนับเป็น execution proof."""
+    """SM-09: pass marker ของ nonce รอบปัจจุบันใน echo ต้องถูกปฏิเสธ (commit gate ต้อง rollback)."""
     case = fresh_case(
-        "SM-09", "Static Marker Spoof (Echo)",
-        "Static OMEGA_APPLY_PASS in command echo", "static_marker_spoof",
+        "SM-09", "Current Round Pass Marker in Echo",
+        "Current round markers.pass_bytes echoed as trusted; must rollback", "static_marker_spoof",
         "rollback", {"static_spoof_detected": True, "rollback_triggered": True},
     )
     result = run_event_driven_test(case, harness.scenario_static_marker_spoof)
     check(result.conditions_met.get("static_spoof_detected") is True,
           f"static_spoof_detected not detected: {result.conditions_met}")
-    check(result.events.pass_accepted is False,
-          "echoed static PASS marker must never be accepted as commit proof")
+    check(result.events.is_successful_commit_signal() is False,
+          "echoed pass marker must never satisfy commit gate")
     check(result.action == "rollback", f"expected rollback, got {result.action}")
     check(case.status == TestStatus.PASS, f"case status {case.status}: {case.error}")
 
@@ -239,6 +243,23 @@ def test_commit_gate_and_rollback_conditions():
           f"case status {fail_case.status}: {fail_case.error}")
 
 
+def test_commit_gate_partial_phases_rollback():
+    """SM-14: commit gate เมื่อ phase ไม่ครบ ต้อง rollback ไม่ commit."""
+    case = fresh_case(
+        "SM-14", "Commit Gate Partial Phases",
+        "Some phases missing; commit gate must not be satisfied", "commit_gate_partial_phases",
+        "rollback", {"rollback_triggered": True},
+    )
+    result = run_event_driven_test(
+        case, harness.scenario_commit_gate_partial_phases
+    )
+    check(result.action == "rollback",
+          f"expected rollback on partial phases, got {result.action}")
+    check(result.conditions_met.get("commit_gate_satisfied") is False,
+          "commit gate must not be satisfied with partial phases")
+    check(case.status == TestStatus.PASS, f"case status {case.status}: {case.error}")
+
+
 TESTS = [
     test_connection_failure_exercised_through_transport_read,
     test_auth_failure_detected_from_transport,
@@ -249,6 +270,7 @@ TESTS = [
     test_stale_nonce_spoof_rejected,
     test_disconnect_mid_transaction_rollback,
     test_commit_gate_and_rollback_conditions,
+    test_commit_gate_partial_phases_rollback,
 ]
 
 

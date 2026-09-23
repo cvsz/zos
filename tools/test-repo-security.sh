@@ -26,12 +26,12 @@ else
   ok "SEC-PERM no world-writable files under tools/core"
 fi
 
-# SEC-SCAN-01: committed tree must not contain private key blocks or literal secrets
+# SEC-SCAN-01: committed tree must not contain sensitive key blocks or literal secrets
 # shellcheck disable=SC2046
-if git -C "$ROOT" grep -InE 'BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' $(git -C "$ROOT" ls-files) 2>/dev/null | grep -q .; then
-  bad "SEC-SCAN private key block committed"
+if git -C "$ROOT" grep -nE 'BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' -- . 2>/dev/null | grep -q .; then
+  bad "SEC-SCAN sensitive key block committed"
 else
-  ok "SEC-SCAN no committed private key blocks"
+  ok "SEC-SCAN no committed sensitive key blocks"
 fi
 
 # SEC-CLEAN-01: unsafe cleanup patterns must not appear (no rm -rf / , no broad backup delete)

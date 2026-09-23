@@ -13,7 +13,8 @@ bad() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
 
 mkdir -p "$ROOT/artifacts/routeros-audit"
 chmod 700 "$ROOT/artifacts/routeros-audit" 2>/dev/null || true
-trap 'rm -rf "$T0" 2>/dev/null || true' EXIT
+T0=""
+trap '[[ -z "${T0:-}" ]] || rm -rf "$T0" 2>/dev/null || true' EXIT
 
 # Create a valid identity file for later tests
 T0="$(mktemp -d)"
@@ -61,6 +62,7 @@ fi
 
 # AUD-07: live without OMEGA_AUDIT_AUTHORIZED_BY fails closed
 export OMEGA_ALLOW_LIVE_AUDIT=1
+unset OMEGA_AUDIT_AUTHORIZED_BY
 if OUT=$(bash "$AUDIT" --target "admin@chr-lab" --fingerprint "abc" --identity "$IDENTITY_VALID" --allow-live-audit 2>&1); then
   bad "AUD-07 unauthorized live allowed"
 else
@@ -78,22 +80,61 @@ else
 fi
 unset OMEGA_ALLOW_LIVE_AUDIT
 
-# AUD-09: live audit with valid env produces JSON (SSH will fail but validation passes)
-EV9="$ROOT/artifacts/routeros-audit/audit-$(date +%s).json"
+# AUD-09: only pinned host-key and successful mocked SSH may produce PASS.
+ssh-keygen -q -t ed25519 -N '' -f "$T0/hostkey" >/dev/null 2>&1
+KNOWN_HOSTS="$T0/known_hosts"
+printf 'chr-lab %s\n' "$(cat "$T0/hostkey.pub")" > "$KNOWN_HOSTS"
+FINGERPRINT="$(ssh-keygen -lf "$KNOWN_HOSTS" -E sha256 | awk '{print $2}')"
+mkdir -p "$T0/bin"
+cat > "$T0/bin/ssh" <<'MOCKSSH'
+#!/usr/bin/env bash
+printf 'mock read-only response\n'
+MOCKSSH
+chmod 700 "$T0/bin/ssh"
+EV9="$ROOT/artifacts/routeros-audit/audit-$(date +%s)-$$.json"
 export OMEGA_ALLOW_LIVE_AUDIT=1
 export OMEGA_AUDIT_AUTHORIZED_BY="test-operator"
-if OUT=$(bash "$AUDIT" --target "admin@chr-lab" --fingerprint "abc123" --identity "$IDENTITY_VALID" --allow-live-audit --timeout 2 --output "$EV9" 2>/dev/null) || true; then
-  if [[ -s "$EV9" ]] && python3 -c 'import json; json.load(open("'"$EV9"'"))' 2>/dev/null; then
-    ok "AUD-09 produces valid JSON snapshot"
+export OMEGA_AUDIT_KNOWN_HOSTS="$KNOWN_HOSTS"
+if PATH="$T0/bin:$PATH" bash "$AUDIT" --target "admin@chr-lab" --fingerprint "$FINGERPRINT" --identity "$IDENTITY_VALID" --allow-live-audit --timeout 2 --output "$EV9" >/dev/null 2>&1; then
+  if [[ -s "$EV9" ]] && python3 - "$EV9" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as fh:
+    result = json.load(fh)
+assert result["status"] == "PASS"
+assert result["live_audit"] is True
+assert result["commands"]
+PY
+  then
+    ok "AUD-09 pinned-host mocked SSH produces valid PASS JSON"
   else
-    bad "AUD-09 no valid JSON evidence"
+    bad "AUD-09 missing or invalid PASS JSON evidence"
   fi
 else
-  bad "AUD-09 script failed"
+  bad "AUD-09 authorized mocked SSH unexpectedly failed"
 fi
 rm -f "$EV9"
-unset OMEGA_ALLOW_LIVE_AUDIT
-unset OMEGA_AUDIT_AUTHORIZED_BY
+unset OMEGA_ALLOW_LIVE_AUDIT OMEGA_AUDIT_AUTHORIZED_BY OMEGA_AUDIT_KNOWN_HOSTS
+
+# AUD-14: SSH failures must never report a successful audit.
+cat > "$T0/bin/ssh" <<'FAILSSH'
+#!/usr/bin/env bash
+exit 255
+FAILSSH
+chmod 700 "$T0/bin/ssh"
+export OMEGA_ALLOW_LIVE_AUDIT=1 OMEGA_AUDIT_AUTHORIZED_BY="test-operator" OMEGA_AUDIT_KNOWN_HOSTS="$KNOWN_HOSTS"
+if PATH="$T0/bin:$PATH" bash "$AUDIT" --target "admin@chr-lab" --fingerprint "$FINGERPRINT" --identity "$IDENTITY_VALID" --allow-live-audit --timeout 2 >/dev/null 2>&1; then
+  bad "AUD-14 failed SSH was accepted as PASS"
+else
+  ok "AUD-14 SSH failure exits nonzero"
+fi
+# AUD-15: mismatched fingerprint must fail before any SSH command.
+if PATH="$T0/bin:$PATH" bash "$AUDIT" --target "admin@chr-lab" --fingerprint 'SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' --identity "$IDENTITY_VALID" --allow-live-audit --timeout 2 >/dev/null 2>&1; then
+  bad "AUD-15 mismatched host-key accepted"
+else
+  ok "AUD-15 mismatched fingerprint rejected"
+fi
+unset OMEGA_ALLOW_LIVE_AUDIT OMEGA_AUDIT_AUTHORIZED_BY OMEGA_AUDIT_KNOWN_HOSTS
 
 # AUD-10: identity file not readable fails closed
 T4="$(mktemp -d)"
@@ -106,7 +147,7 @@ fi
 rm -rf "$T4"
 
 # AUD-11: StrictHostKeyChecking is enforced (grep script)
-if grep -Fq 'StrictHostKeyChecking=yes' "$AUDIT"; then
+if grep -Fq 'StrictHostKeyChecking=yes' "$AUDIT" && grep -Fq 'UserKnownHostsFile="$KNOWN_HOSTS"' "$AUDIT" && ! grep -Fq 'UserKnownHostsFile=/dev/null' "$AUDIT"; then
   ok "AUD-11 StrictHostKeyChecking=yes enforced"
 else
   bad "AUD-11 StrictHostKeyChecking not enforced"

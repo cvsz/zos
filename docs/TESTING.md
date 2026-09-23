@@ -87,3 +87,7 @@ Covers 28 checks: unique identifiers, `700`/`600` permissions, `mktemp` staging 
 ## Restore Drill Regression
 
 ทดสอบโดยไม่เชื่อมต่อ Router ด้วย `bash tools/test-restore-drill.sh` ซึ่งรวมกรณี Manifest จาก Backup คนละชุด ชื่อ Artifact ไม่ตรง จำนวนไบต์ผิด และ Checksum ไม่ตรง การทดสอบนี้ไม่ใช่ Live CHR Restore Evidence
+
+## Offline Topology Drift และ Audit Collector
+
+ทดสอบแบบไม่เชื่อมต่อ Router ด้วย `bash tools/test-topology-reconcile.sh`, `bash tools/test-routeros-audit.sh` และ `bash tools/test-repo-security.sh` ระบบตรวจ LAN CIDR/Gateway, JSON Drift และจำลอง SSH Failure ผ่าน Mock Transport เท่านั้น การตรวจ Live ต้องมี Operator Approval, Known Hosts ที่ตรวจสอบ Fingerprint จากช่องทางอิสระ และ Recovery Path ที่ยืนยันแล้ว

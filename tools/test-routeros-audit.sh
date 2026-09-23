@@ -60,23 +60,21 @@ else
   if grep -Eiq 'blocklist|production' <<<"$OUT"; then ok "AUD-06 production target refused"; else bad "AUD-06 wrong error: $OUT"; fi
 fi
 
-# AUD-07: live without OMEGA_AUDIT_AUTHORIZED_BY fails closed
+# AUD-07: missing explicit --allow-live-audit flag fails before operator authorization
 export OMEGA_ALLOW_LIVE_AUDIT=1
-unset OMEGA_AUDIT_AUTHORIZED_BY
-if OUT=$(bash "$AUDIT" --target "admin@chr-lab" --fingerprint "abc" --identity "$IDENTITY_VALID" --allow-live-audit 2>&1); then
-  bad "AUD-07 unauthorized live allowed"
+export OMEGA_AUDIT_AUTHORIZED_BY="test-operator"
+if OUT=$(bash "$AUDIT" --target "admin@chr-lab" --fingerprint "abc" --identity "$IDENTITY_VALID" 2>&1); then
+  bad "AUD-07 missing --allow-live-audit flag allowed"
 else
-  if grep -Eiq 'authorization|OMEGA_AUDIT' <<<"$OUT"; then ok "AUD-07 live without auth fails closed"; else bad "AUD-07 wrong error: $OUT"; fi
+  if grep -Fq -- '--allow-live-audit' <<<"$OUT"; then ok "AUD-07 explicit live-audit flag required"; else bad "AUD-07 wrong error: $OUT"; fi
 fi
-unset OMEGA_ALLOW_LIVE_AUDIT
+unset OMEGA_AUDIT_AUTHORIZED_BY
 
-# AUD-08: live without OMEGA_AUDIT_AUTHORIZED_BY fails closed
-export OMEGA_ALLOW_LIVE_AUDIT=1
-# shellcheck disable=SC2209
+# AUD-08: missing OMEGA_AUDIT_AUTHORIZED_BY fails after live-audit flag/gate pass
 if OUT=$(bash "$AUDIT" --target "admin@chr-lab" --fingerprint "abc" --identity "$IDENTITY_VALID" --allow-live-audit 2>&1); then
   bad "AUD-08 unauthorized live allowed"
 else
-  if grep -Eiq 'OMEGA_AUDIT_AUTHORIZED_BY|fail-closed' <<<"$OUT"; then ok "AUD-08 live without auth fails closed"; else bad "AUD-08 wrong error: $OUT"; fi
+  if grep -Fq 'OMEGA_AUDIT_AUTHORIZED_BY' <<<"$OUT"; then ok "AUD-08 operator authorization required"; else bad "AUD-08 wrong error: $OUT"; fi
 fi
 unset OMEGA_ALLOW_LIVE_AUDIT
 

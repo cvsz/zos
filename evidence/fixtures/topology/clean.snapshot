@@ -1,0 +1,37 @@
+# Sanitized offline fixture: snapshot matching the repository contract.
+# No secrets, no production runtime data.
+wan.mode=dhcp
+wan.interface=ether1
+route.default=default via 192.168.200.1 dev ether1
+lan.bridge=DBC-Bridge-Local
+lan.cidr=192.168.1.0/24
+lan.gateway=192.168.1.1
+lan.members=ether2,ether3,ether4
+bridge.vlan-filtering=no
+dhcp.pool.lan-pool=192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.118,192.168.1.121,192.168.1.124-192.168.1.237,192.168.1.239-192.168.1.254
+dhcp.network=192.168.1.0/24
+dhcp.dns=192.168.1.1
+lease.48:4D:7E:D4:3A:C6=192.168.1.100
+lease.00:0C:29:75:A6:D4=192.168.1.123
+lease.00:0C:29:B5:F4:09=192.168.1.122
+lease.88:DC:96:53:0F:55=192.168.1.50
+lease.88:DC:96:55:58:E4=192.168.1.51
+lease.88:DC:96:55:58:E7=192.168.1.52
+lease.88:DC:96:55:58:F0=192.168.1.53
+lease.88:DC:96:55:58:DE=192.168.1.54
+lease.88:DC:96:55:58:ED=192.168.1.55
+lease.88:DC:96:55:58:EA=192.168.1.56
+lease.88:DC:96:55:58:F3=192.168.1.57
+lease.88:DC:96:55:58:E1=192.168.1.58
+arp.88:DC:96:53:0F:55=192.168.1.50
+arp.00:0C:29:75:A6:D4=192.168.1.123
+wireguard.peer.core.allowed=10.8.0.2/32
+firewall.owned.chains=ZEAZ-PoliceDBC-INPUT,ZEAZ-PoliceDBC-FORWARD
+firewall.foreign=0
+service.ssh.interfaces=lan,vpn
+core.route.default=default via 192.168.1.1 dev ens33
+core.route.lan=192.168.1.0/24 dev ens33
+core.route.wg=10.8.0.0/24 dev policedbc
+ntp.enabled=yes
+ntp.synced=yes
+dns.resolves=1

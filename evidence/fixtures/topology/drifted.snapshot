@@ -1,0 +1,30 @@
+# Sanitized offline fixture: snapshot with intentional drift.
+# Exercises BRIDGE-MEMBERSHIP, DHCP-POOL, LEASE-DUPLICATE, RESERVATION,
+# ARP-MISMATCH, WG-LAN-OVERLAP, FIREWALL-FOREIGN, MGMT-EXPOSURE, CORE-ROUTE.
+wan.mode=dhcp
+wan.interface=ether1
+route.default=default via 192.168.200.1 dev ether1
+lan.bridge=DBC-Bridge-Local
+lan.gateway=192.168.1.254
+lan.members=ether1,ether2
+bridge.vlan-filtering=no
+dhcp.pool.lan-pool=192.168.1.59-192.168.1.99,192.168.1.101-192.168.1.200
+dhcp.pool.guest-pool=192.168.1.150-192.168.1.160
+dhcp.network=192.168.1.0/24
+dhcp.dns=8.8.8.8
+lease.48:4D:7E:D4:3A:C6=192.168.1.100
+lease.00:0C:29:75:A6:D4=192.168.1.123
+lease.AA:BB:CC:DD:EE:FF=192.168.1.123
+lease.88:DC:96:53:0F:55=192.168.1.50
+lease.88:DC:96:55:58:E4=192.168.1.99
+arp.88:DC:96:53:0F:55=192.168.1.51
+wireguard.peer.core.allowed=10.8.0.2/32,192.168.1.0/24
+firewall.owned.chains=ZEAZ-PoliceDBC-INPUT
+firewall.foreign=1
+service.ssh.interfaces=lan,wan
+core.route.default=default via 192.168.1.1 dev ens33
+core.route.lan=192.168.1.0/24 dev ens33
+core.route.wg=10.9.0.0/24 dev policedbc
+ntp.enabled=yes
+ntp.synced=no
+dns.resolves=0

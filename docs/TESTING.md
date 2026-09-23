@@ -84,13 +84,10 @@ bash tools/test-backup-hardening.sh
 
 Covers 28 checks: unique identifiers, `700`/`600` permissions, `mktemp` staging + atomic `mv` publish, nonempty validation, SHA-256 + manifest, cleanup trap preserving the original error, no password in ssh argv/stdout/`bash -x` trace, happy-path manifest/perms/checksum/unique IDs, partial-download and empty-artifact fail-closed behavior. Wired into `make validate` via `tools/validate-repo.sh`.
 
-## Restore Drill (Mock, No Live Router)
+## Restore Drill Regression
 
-Reusable fail-closed drill for disposable CHR:
+ทดสอบโดยไม่เชื่อมต่อ Router ด้วย `bash tools/test-restore-drill.sh` ซึ่งรวมกรณี Manifest จาก Backup คนละชุด ชื่อ Artifact ไม่ตรง จำนวนไบต์ผิด และ Checksum ไม่ตรง การทดสอบนี้ไม่ใช่ Live CHR Restore Evidence
 
-~~~bash
-bash tools/test-restore-drill.sh
-tools/restore-drill.sh --backup-id <id> --mock
-~~~
+## Offline Topology Drift และ Audit Collector
 
-Covers 9 checks: mock `MOCK PASS` with elapsed time and sanitized evidence, checksum/provenance/password gates, production-target refusal, live-without-authorization refusal. Live CHR restore stays `BLOCKED` until an isolated disposable target is authorized.
+ทดสอบแบบไม่เชื่อมต่อ Router ด้วย `bash tools/test-topology-reconcile.sh`, `bash tools/test-routeros-audit.sh` และ `bash tools/test-repo-security.sh` ระบบตรวจ LAN CIDR/Gateway, JSON Drift และจำลอง SSH Failure ผ่าน Mock Transport เท่านั้น การตรวจ Live ต้องมี Operator Approval, Known Hosts ที่ตรวจสอบ Fingerprint จากช่องทางอิสระ และ Recovery Path ที่ยืนยันแล้ว

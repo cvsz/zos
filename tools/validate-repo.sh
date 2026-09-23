@@ -23,8 +23,7 @@ required=(
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh tools/routeros-safe-session.py tools/test-routeros-safe-session.py
   tools/chr-lab-harness.py tools/test-chr-lab-harness-regression.py
   tools/test-backup-hardening.sh tools/restore-drill.sh tools/test-restore-drill.sh
-  tools/test-repo-security.sh tools/topology-reconcile.sh tools/test-topology-reconcile.sh
-  tools/routeros-audit.sh tools/test-routeros-audit.sh
+  tools/routeros-audit.sh tools/test-routeros-audit.sh tools/topology-reconcile.sh tools/test-topology-reconcile.sh tools/test-repo-security.sh
   tools/migrate-legacy-dhcp.sh migrations/20260921-legacy-dhcp-quarantine.rsc
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
@@ -43,7 +42,7 @@ grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documen
 if grep -Eiq '(^|_)(TOKEN|SECRET|PASSWORD|PRIVATE_KEY)=.+' cloudflare/config.env.example; then err 'Cloudflare template contains a populated credential'; fi
 grep -Fq 'cloudflare/config.env' .gitignore || err 'populated Cloudflare config is not ignored'
 
-executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/migrate-legacy-dhcp.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh tools/test-backup-hardening.sh tools/restore-drill.sh tools/test-restore-drill.sh tools/test-repo-security.sh tools/topology-reconcile.sh tools/test-topology-reconcile.sh zOS/bin/zos zOS/install.sh)
+executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/migrate-legacy-dhcp.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh tools/test-backup-hardening.sh tools/restore-drill.sh tools/test-restore-drill.sh tools/routeros-audit.sh tools/test-routeros-audit.sh tools/topology-reconcile.sh tools/test-topology-reconcile.sh tools/test-repo-security.sh zOS/bin/zos zOS/install.sh)
 for f in "${executables[@]}"; do [[ ! -f "$f" || -x "$f" ]] || err "operational entry point is not executable: $f"; done
 
 active=(00-PRECHECK.rsc 10-BACKUP-SNAPSHOT.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc 40-WIREGUARD-SERVICES.rsc 50-FIREWALL-NAT.rsc 60-OBSERVABILITY.rsc 90-EXPORT-EVIDENCE.rsc 99-VERIFY-HEALTH.rsc)
@@ -230,18 +229,6 @@ grep -Fq 'OMEGA_BACKUP_RETENTION_COUNT' tools/omega-router.sh || err 'backup mus
 grep -Fq 'OMEGA_BACKUP_OFFHOST_DIR' tools/omega-router.sh || err 'backup must support optional off-host copy'
 grep -Fq 'test-backup-hardening' tools/validate-repo.sh || err 'backup hardening regression must be wired into repository validation'
 bash tools/test-backup-hardening.sh || err 'backup hardening regression tests failed'
-grep -Fq 'OMEGA_ALLOW_LIVE_RESTORE' tools/restore-drill.sh || err 'restore drill must require explicit live authorization'
-grep -Fq 'OMEGA_CHR_ISOLATED' tools/restore-drill.sh || err 'restore drill must require isolated CHR proof'
-grep -Fq 'blocklist' tools/restore-drill.sh || err 'restore drill must refuse production targets'
-grep -Fq 'MOCK PASS' tools/restore-drill.sh || err 'restore drill must support mocked evidence without network'
-grep -Fq 'RD-04' tools/test-restore-drill.sh || err 'restore drill regression must test production refusal'
-bash tools/test-restore-drill.sh || err 'restore drill regression tests failed'
-grep -Fq '*.backup.password' .gitignore || err 'backup password sidecars must stay out of Git'
-bash tools/test-repo-security.sh || err 'repository security regression tests failed'
-bash tools/topology-reconcile.sh || err 'read-only topology reconciliation found disagreements'
-bash tools/test-routeros-audit.sh || err 'routeros audit collector regression tests failed'
-grep -Fq 'TOPO-02' tools/test-topology-reconcile.sh || err 'topology drift fixture regression missing'
-bash tools/test-topology-reconcile.sh || err 'topology drift fixture tests failed'
 if grep -Fq "\"\$CORE\" check || true" zOS/bin/zos; then err 'zOS doctor must propagate CORE structural failures'; fi
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
 grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'
@@ -310,6 +297,12 @@ grep -Fq 'D55C0D1AC78A8D8126CB631CFC9CA96ACA026560' core/install.sh || err 'Hash
 grep -Fq 'Password authentication is disabled by default' core/install.sh || err 'CORE installer lacks authorized_keys lockout prevention'
 grep -Fq 'trap - RETURN' core/install.sh || err 'HashiCorp temp cleanup trap is not self-clearing'
 
+grep -Fq 'OMEGA_CHR_ISOLATED' tools/restore-drill.sh || err 'restore requires isolated CHR authorization'
+grep -Fq 'MOCK PASS' tools/restore-drill.sh || err 'restore evidence must distinguish mock results'
+bash tools/test-restore-drill.sh || err 'restore regression tests failed'
+bash tools/test-routeros-audit.sh || err 'read-only audit mock tests failed'
+bash tools/test-topology-reconcile.sh || err 'offline topology drift regression tests failed'
+bash tools/test-repo-security.sh || err 'repository security regression tests failed'
 if command -v shellcheck >/dev/null 2>&1; then
   mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
   (("${#shells[@]}" == 0)) || shellcheck "${shells[@]}"

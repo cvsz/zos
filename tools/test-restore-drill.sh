@@ -24,7 +24,7 @@ make_backup_set() {
   cat > "$dir/$id.manifest.json" <<EOF
 {"backup_id": "$id", "commit_sha": "test-commit", "created_at": "2026-09-22T00:00:00Z",
  "router_host": "chr-lab", "router_user": "admin", "router_version": "7.25",
- "artifacts": [{"name": "$id.rsc", "sha256": "$rsc_sha", "size": $rsc_size}, {"name": "$id.backup", "sha256": "$bin_sha", "size": $bin_size}],
+ "artifacts": [{"name": "$id.rsc", "sha256": "$rsc_sha", "bytes": $rsc_size}, {"name": "$id.backup", "sha256": "$bin_sha", "bytes": $bin_size}],
  "password_file": "$id.backup.password"}
 EOF
   printf 'ABCD1234abcd1234ABCD1234xyz\n' > "$pwdir/$id.backup.password"
@@ -95,6 +95,63 @@ else
   if grep -Eiq 'OMEGA_ALLOW_LIVE_RESTORE|OMEGA_CHR_ISOLATED|authorization|fail-closed' <<<"$OUT"; then ok "RD-05 live without auth fails closed"; else bad "RD-05 wrong error: $OUT"; fi
 fi
 rm -rf "$T5"
+
+# RD-07: reject a manifest renamed from a different backup.
+T7="$(mktemp -d)"
+make_backup_set "$T7/backups" "$T7/secrets" "$ID1"
+python3 - "$T7/backups/$ID1.manifest.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+with open(path,encoding="utf-8") as source:
+    value=json.load(source)
+value["backup_id"]="omega-policedbc-wrong-set"
+with open(path,"w",encoding="utf-8") as target:
+    json.dump(value,target)
+PY
+if bash "$DRILL" --backup-id "$ID1" --backup-dir "$T7/backups" --password-dir "$T7/secrets" --mock >/dev/null 2>&1; then
+  bad "RD-07 mismatched manifest was accepted"
+else
+  ok "RD-07 mismatched manifest rejected"
+fi
+rm -rf "$T7"
+
+# RD-08: reject a manifest referencing another artifact filename.
+T8="$(mktemp -d)"
+make_backup_set "$T8/backups" "$T8/secrets" "$ID1"
+python3 - "$T8/backups/$ID1.manifest.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+with open(path,encoding="utf-8") as source:
+    value=json.load(source)
+value["artifacts"][0]["name"]="unrelated.rsc"
+with open(path,"w",encoding="utf-8") as target:
+    json.dump(value,target)
+PY
+if bash "$DRILL" --backup-id "$ID1" --backup-dir "$T8/backups" --password-dir "$T8/secrets" --mock >/dev/null 2>&1; then
+  bad "RD-08 unrelated artifact was accepted"
+else
+  ok "RD-08 unrelated artifact rejected"
+fi
+rm -rf "$T8"
+
+# RD-09: reject an incorrect byte count.
+T9="$(mktemp -d)"
+make_backup_set "$T9/backups" "$T9/secrets" "$ID1"
+python3 - "$T9/backups/$ID1.manifest.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+with open(path,encoding="utf-8") as source:
+    value=json.load(source)
+value["artifacts"][0]["bytes"]+=1
+with open(path,"w",encoding="utf-8") as target:
+    json.dump(value,target)
+PY
+if bash "$DRILL" --backup-id "$ID1" --backup-dir "$T9/backups" --password-dir "$T9/secrets" --mock >/dev/null 2>&1; then
+  bad "RD-09 wrong byte count was accepted"
+else
+  ok "RD-09 wrong byte count rejected"
+fi
+rm -rf "$T9"
 
 # RD-06: missing manifest fails closed
 T6="$(mktemp -d)"

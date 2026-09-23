@@ -47,6 +47,7 @@ while (($# > 0)); do
 done
 
 [[ -n "$BACKUP_ID" ]] || { echo 'ERROR: --backup-id is required' >&2; exit 2; }
+[[ "$BACKUP_ID" =~ ^omega-policedbc-[A-Za-z0-9_-]+$ ]] || { echo 'ERROR: invalid backup identifier' >&2; exit 2; }
 BACKUP_DIR="${BACKUP_DIR:-${OMEGA_BACKUP_DIR:-$ROOT/backups}}"
 PASSWORD_DIR="${PASSWORD_DIR:-${OMEGA_BACKUP_PASSWORD_DIR:-$ROOT/state/backup-secrets}}"
 EVIDENCE_DIR="${EVIDENCE_DIR:-$ROOT/artifacts/restore-drill}"
@@ -67,14 +68,13 @@ MANIFEST="$BACKUP_DIR/$BACKUP_ID.manifest.json"
 RSC_SHA="$BACKUP_DIR/$BACKUP_ID.rsc.sha256"  # retained for manifest reference
 # shellcheck disable=SC2034
 BIN_SHA="$BACKUP_DIR/$BACKUP_ID.backup.sha256"  # retained for manifest reference
-RSC_BASE="$(basename "$RSC")"
-BIN_BASE="$(basename "$BIN")"
 
 START_MS="$(date +%s%3N 2>/dev/null || date +%s)"
 START_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 COMMIT_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf 'unknown')"
-RUN_ID="$(printf '%s-%s' "$BACKUP_ID" "$START_MS")"
+RUN_ID="$(printf '%s-%s-%s-%s' "$BACKUP_ID" "$START_MS" "$" "$RANDOM")"
 
+umask 077
 mkdir -p "$EVIDENCE_DIR"
 chmod 700 "$EVIDENCE_DIR" 2>/dev/null || true
 EVIDENCE_FILE="$EVIDENCE_DIR/manifest-$RUN_ID.json"
@@ -110,43 +110,46 @@ elapsed_now() {
   fi
 }
 
-# 1. ตรวจสอบ manifest + provenance + checksum ก่อน restore ใดๆ
-[[ -s "$MANIFEST" ]] || { fail_closed "backup manifest is missing or empty ($MANIFEST)" "$(elapsed_now)"; exit 1; }
-# shellcheck disable=SC2016
-if ! python3 -c '
-import json,sys
-d=json.load(open(sys.argv[1]))
-assert d.get("backup_id"), "missing backup_id"
-assert d.get("commit_sha"), "missing commit_sha"
-arts=d.get("artifacts",[])
-assert len(arts)==2, "expected 2 artifacts"
-for a in arts:
-    assert a.get("name"), "artifact missing name"
-    assert a.get("sha256"), "artifact " + str(a.get("name","?")) + " missing sha256"
-    assert a.get("size"), "artifact " + str(a.get("name","?")) + " missing size"
-' "$MANIFEST" 2>/dev/null; then
-  fail_closed "backup manifest integrity check failed (invalid JSON or missing provenance)" "$(elapsed_now)"; exit 1
+# Verify canonical backup manifest against the actual requested files, never sidecars.
+[[ -s "$MANIFEST" && -s "$RSC" && -s "$BIN" ]] || {
+  fail_closed "backup manifest or required artifact missing" "$(elapsed_now)"
+  exit 1
+}
+if ! python3 - "$MANIFEST" "$BACKUP_ID" "$RSC" "$BIN" <<'PY'
+import hashlib
+import json
+import re
+import sys
+from pathlib import Path
+
+manifest_file, expected_id, rsc_file, bin_file = sys.argv[1:]
+with open(manifest_file, encoding="utf-8") as stream:
+    manifest = json.load(stream)
+assert manifest.get("backup_id") == expected_id, "backup identifier mismatch"
+for required in ("commit_sha", "created_at", "router_host"):
+    assert isinstance(manifest.get(required), str) and manifest[required].strip(), "missing provenance"
+assert manifest.get("password_file") == expected_id + ".backup.password", "password file mismatch"
+records = manifest.get("artifacts")
+assert isinstance(records, list) and len(records) == 2, "expected exactly two artifacts"
+expected = {Path(rsc_file).name: Path(rsc_file), Path(bin_file).name: Path(bin_file)}
+names = [record.get("name") for record in records if isinstance(record, dict)]
+assert len(names) == 2 and set(names) == set(expected), "artifact filenames mismatch"
+for record in records:
+    assert isinstance(record, dict), "invalid artifact record"
+    assert isinstance(record.get("sha256"), str) and re.fullmatch(r"[a-fA-F0-9]{64}", record["sha256"]), "invalid SHA-256"
+    assert type(record.get("bytes")) is int and record["bytes"] > 0, "invalid byte count"
+    artifact = expected[record["name"]]
+    assert artifact.is_file() and artifact.stat().st_size == record["bytes"], "artifact size mismatch"
+    digest = hashlib.sha256()
+    with artifact.open("rb") as source:
+        for chunk in iter(lambda: source.read(1048576), b""):
+            digest.update(chunk)
+    assert digest.hexdigest() == record["sha256"].lower(), "artifact checksum mismatch"
+PY
+then
+  fail_closed "backup provenance, bytes or checksum mismatch" "$(elapsed_now)"
+  exit 1
 fi
-[[ -s "$RSC" ]] || { fail_closed "export artifact missing or empty ($RSC); both artifacts required" "$(elapsed_now)"; exit 1; }
-[[ -s "$BIN" ]] || { fail_closed "binary artifact missing or empty ($BIN); both artifacts required" "$(elapsed_now)"; exit 1; }
-RSC_DIGEST="$(sha256sum "$RSC" 2>/dev/null | awk '{print $1}')"
-BIN_DIGEST="$(sha256sum "$BIN" 2>/dev/null | awk '{print $1}')"
-# shellcheck disable=SC2086
-RSC_MANIFEST_DIGEST="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arts=d.get("artifacts",[]); a=[x for x in arts if x.get("name")=="'$RSC_BASE'"][0]; print(a.get("sha256","") if a else "")' "$MANIFEST" 2>/dev/null || true)"
-# shellcheck disable=SC2086
-BIN_MANIFEST_DIGEST="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arts=d.get("artifacts",[]); a=[x for x in arts if x.get("name")=="'$BIN_BASE'"][0]; print(a.get("sha256","") if a else "")' "$MANIFEST" 2>/dev/null || true)"
-# shellcheck disable=SC2086
-RSC_MANIFEST_SIZE="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arts=d.get("artifacts",[]); a=[x for x in arts if x.get("name")=="'$RSC_BASE'"][0]; print(str(a.get("size","")) if a else "")' "$MANIFEST" 2>/dev/null || true)"
-# shellcheck disable=SC2086
-BIN_MANIFEST_SIZE="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arts=d.get("artifacts",[]); a=[x for x in arts if x.get("name")=="'$BIN_BASE'"][0]; print(str(a.get("size","")) if a else "")' "$MANIFEST" 2>/dev/null || true)"
-RSC_ACTUAL_SIZE="$(stat -c%s "$RSC" 2>/dev/null || echo unknown)"
-BIN_ACTUAL_SIZE="$(stat -c%s "$BIN" 2>/dev/null || echo unknown)"
-[[ -n "$RSC_MANIFEST_DIGEST" ]] || { fail_closed "manifest missing checksum for $RSC_BASE" "$(elapsed_now)"; exit 1; }
-[[ -n "$BIN_MANIFEST_DIGEST" ]] || { fail_closed "manifest missing checksum for $BIN_BASE" "$(elapsed_now)"; exit 1; }
-[[ "$RSC_DIGEST" == "$RSC_MANIFEST_DIGEST" ]] || { fail_closed "export checksum mismatch (not restoring unverified backup)" "$(elapsed_now)"; exit 1; }
-[[ "$BIN_DIGEST" == "$BIN_MANIFEST_DIGEST" ]] || { fail_closed "binary checksum mismatch (not restoring unverified backup)" "$(elapsed_now)"; exit 1; }
-[[ "$RSC_ACTUAL_SIZE" == "$RSC_MANIFEST_SIZE" ]] || { fail_closed "export size mismatch (not restoring unverified backup)" "$(elapsed_now)"; exit 1; }
-[[ "$BIN_ACTUAL_SIZE" == "$BIN_MANIFEST_SIZE" ]] || { fail_closed "binary size mismatch (not restoring unverified backup)" "$(elapsed_now)"; exit 1; }
 
 # 2. ตรวจสอบ password availability (อ่านเฉพาะ existence/size ไม่พิมพ์ content)
 PASSWORD_BASENAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("password_file",""))' "$MANIFEST" 2>/dev/null || true)"
@@ -192,11 +195,7 @@ if [[ -z "${OMEGA_CHR_AUTHORIZED_BY:-}" ]]; then
   fail_closed "live restore requires OMEGA_CHR_AUTHORIZED_BY=<operator> explicit authorization" "$(elapsed_now)"; exit 3
 fi
 
-# recovery-capable management path: พิสูจน์ SSH ก่อน restore
-if ! ssh -o BatchMode=yes -o ConnectTimeout=8 "$TARGET" '/system identity print' >/dev/null 2>&1; then
-  fail_closed "CHR management path not proven before restore (ssh failed); refusing" "$(elapsed_now)"; exit 3
-fi
-
+# No live SSH or restoration is attempted until independent isolated-CHR evidence exists.
 # Live restore ยังไม่ implement เต็ม (ต้องมี CHR จริง + Safe Mode + reboot gates)
 ELAPSED="$(elapsed_now)"
 {

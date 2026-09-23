@@ -4,10 +4,19 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
-### Restore drill for disposable CHR with fail-closed gates (Phase 3 P0-3)
-- เพิ่ม `tools/restore-drill.sh`: ตรวจ `manifest integrity`, `SHA-256` ทั้งสองไฟล์, `provenance` (`backup_id/commit`), `password availability` (เฉพาะ existence/format ไม่พิมพ์ secret) ก่อน restore ใดๆ; ปฏิเสธ production blocklist (`192.168.1.1/.122/.123`, `core/prod.zeaz.dev`) แม้มี authorization; live ต้องมี `--allow-live-restore` + `OMEGA_ALLOW_LIVE_RESTORE=1` + `OMEGA_CHR_ISOLATED=1` + `OMEGA_CHR_AUTHORIZED_BY` + พิสูจน์ SSH management path ก่อน; `--mock` ผลิต `MOCK PASS` evidence พร้อม `elapsed_ms` โดยไม่แตะ network; live ที่ยังไม่มี CHR execution path คืน `BLOCKED` โดยไม่ mutate
-- เพิ่ม `tools/test-restore-drill.sh` 9 เคส (mocked): happy-path MOCK PASS + elapsed + sanitized (no password), checksum mismatch/tamper fail-closed, missing password fail-closed, production target refused, live โดยไม่มี auth fail-closed, missing manifest fail-closed
-- ล็อก contract ใน `tools/validate-repo.sh`; live CHR restore verification ยัง **BLOCKED**
+### Recovery documentation and evidence taxonomy
+- เพิ่มคู่มือกู้คืนระบบภาษาไทยครบ 9 สถานการณ์, ปรับ Evidence Matrix ให้ตรง 17 Mock Scenarios และ 15 Live CHR Cases ที่ยัง BLOCKED, ซิงก์ README/Runbook/Readiness กับ Restore Drill และ Offline Audit โดยไม่อ้างว่า Production ผ่านการตรวจ
+
+### Offline topology drift และ SSH read-only audit
+- เพิ่ม JSON Drift Report, ตรวจ LAN CIDR/Gateway, ชุด Fixture Tests และ Audit Collector ที่ต้องยืนยัน SSH Host Key ผ่าน Known Hosts; Error ของ SSH ไม่ถูกนับเป็น PASS และ Production Mutation ยังคงถูกปิด
+
+### Restore Drill — clean main integration
+- เพิ่ม Restore Drill ที่ตรวจ Schema ของ Backup Pipeline จริง (`bytes`), Manifest Provenance, ชื่อ Artifact และ SHA-256 จากไฟล์โดยตรง พร้อม Regression Tests โดยยังปิด Live CHR Restore และไม่เชื่อมต่อ Production
+
+### CHR lab harness regression suite - Python 3.14 compatibility (Phase B)
+- แก้ `tools/test-chr-lab-harness-regression.py` ที่ crash ด้วย `AttributeError` บน Python 3.14: ลงทะเบียน dynamically loaded modules ใน `sys.modules` ก่อน `exec_module` (จำเป็นสำหรับ `@dataclass` processing)
+- เขียนชุดทดสอบใหม่ 9 เคสให้ใช้ event-driven API ปัจจุบัน (`run_event_driven_test`, `expected_action`/`expected_conditions`) แทน `run_scenario_test`/`expected` ที่ไม่มีอยู่แล้ว; ทุกเคส assert ว่า failure condition ถูก exercise และ detect จริงผ่าน `transport.read()`/`write()` (connection/auth/prompt timeout, Safe Mode refusal, hijack, static/stale spoof rejection, disconnect, commit gate)
+- ผูกชุดทดสอบเข้า `tools/validate-repo.sh` (รันใน `make validate` และ CI `validate.yml`); ผ่าน 9/9 ทั้ง direct run และ pytest บน Python 3.14.4
 
 ### Backup lifecycle hardening - atomic publish, checksums, manifest (Phase 3 P0-2)
 - เขียนใหม่ `backup()` ใน `tools/omega-router.sh` แบบ idempotent: ตัวระบุไม่ซ้ำ (`timestamp-pid-random`), `umask 077` ก่อน `mkdir`, `chmod 700` dirs / `chmod 600` artifacts, staging ส่วนตัวผ่าน `mktemp -d` + ไฟล์ `.part`, ตรวจสอบ `nonempty` ทั้งสองไฟล์, คำนวณ `SHA-256`, เผยแพร่แบบ `atomic mv` แล้วจึงเขียน `.sha256` + `manifest.json` (ผูก `backup_id/commit_sha/created_at/router_host/sha256/bytes` โดยไม่รวม password/secret)

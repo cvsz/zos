@@ -12,9 +12,14 @@ This roadmap describes intended work. It must not be read as evidence that an it
 ## Completed (Repository-Ready)
 
 - **Phase 1**: Safe Mode nonce-framed state machine with 28 regression tests (PR #67 merged)
-- **Phase 2**: CHR Lab Mock Harness with 15 failure-injection scenarios + evidence manifest
+- **Phase 2**: CHR Lab Mock Harness with 17 failure-injection scenarios + evidence manifest
 
 ## Next
+
+- Repository mock harness: 17 scenarios (SSH-01..03, SM-01..14); Python regression 10 tests; CHR integration 15 cases BLOCKED pending isolated CHR.
+- Disaster recovery: guarded restore drill (mock-only), Thai nine-scenario management runbooks and offline topology/audit tooling are repository implementation only; actual CHR restore and production audit remain BLOCKED.
+
+- ตรวจ Offline Topology Drift และ SSH Audit Collector ด้วย Fixtures/Mock; การเชื่อมต่อ Live และการเปลี่ยน RouterOS ยังต้องมี Approval กับ CHR Evidence แยกต่างหาก
 
 - formalize release/version policy before 1.0;
 - add stronger documentation/static link validation where useful;

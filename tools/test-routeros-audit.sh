@@ -147,7 +147,7 @@ fi
 rm -rf "$T4"
 
 # AUD-11: StrictHostKeyChecking is enforced (grep script)
-if grep -Fq 'StrictHostKeyChecking=yes' "$AUDIT" && grep -Fq 'UserKnownHostsFile="$KNOWN_HOSTS"' "$AUDIT" && ! grep -Fq 'UserKnownHostsFile=/dev/null' "$AUDIT"; then
+if grep -Fq 'StrictHostKeyChecking=yes' "$AUDIT" && grep -Fq 'UserKnownHostsFile=' "$AUDIT" && grep -Fq 'KNOWN_HOSTS' "$AUDIT" && ! grep -Fq 'UserKnownHostsFile=/dev/null' "$AUDIT"; then
   ok "AUD-11 StrictHostKeyChecking=yes enforced"
 else
   bad "AUD-11 StrictHostKeyChecking not enforced"

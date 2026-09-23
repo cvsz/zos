@@ -2,9 +2,11 @@
 """Validate deterministic zOS evidence fixtures using only the Python standard library."""
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 import sys
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,30 +92,93 @@ def validate_harness() -> None:
                 raise AssertionError(f"{contract} must reference {must_reference!r}")
 
 
-def main() -> int:
-    corpora = {name: load_jsonl(path) for name, path in JSONL_FILES.items()}
-    validate_analyzer(corpora["analyzer"])
-    validate_rag(corpora["rag"])
-    validate_actions(
-        corpora["pr_salvage"],
-        {"close_duplicate", "resolve_outdated_then_recheck", "reopen_for_review", "salvage_safe_commits"},
-    )
-    validate_actions(
-        corpora["discussions"],
-        {"answer_or_link_docs", "no_followup_required", "queue_for_maintainer_reply", "convert_to_issue_or_fix"},
-    )
-    for row in corpora["ci"]:
+def run_validation() -> dict:
+    """Run independent checks and collect every failure without hiding later checks."""
+    checks = [
+        ("analyzer", lambda rows: validate_analyzer(rows)),
+        ("rag", lambda rows: validate_rag(rows)),
+        ("pr_salvage", lambda rows: validate_actions(
+            rows, {"close_duplicate", "resolve_outdated_then_recheck",
+                   "reopen_for_review", "salvage_safe_commits"})),
+        ("discussions", lambda rows: validate_actions(
+            rows, {"answer_or_link_docs", "no_followup_required",
+                   "queue_for_maintainer_reply", "convert_to_issue_or_fix"})),
+        ("ci", lambda rows: validate_ci(rows)),
+    ]
+    results = []
+    started = time.monotonic()
+    for name, check in checks:
+        tick = time.monotonic()
+        count = 0
+        try:
+            rows = load_jsonl(JSONL_FILES[name])
+            count = len(rows)
+            check(rows)
+            status, error = "PASS", None
+        except (AssertionError, OSError, ValueError, TypeError, KeyError) as exc:
+            status, error = "FAIL", str(exc)
+        results.append({
+            "name": name, "status": status, "rows": count,
+            "duration_ms": round((time.monotonic() - tick) * 1000),
+            "error": error,
+        })
+    tick = time.monotonic()
+    try:
+        validate_harness()
+        status, error = "PASS", None
+    except (AssertionError, OSError, ValueError, TypeError, KeyError) as exc:
+        status, error = "FAIL", str(exc)
+    results.append({
+        "name": "harness", "status": status, "rows": 0,
+        "duration_ms": round((time.monotonic() - tick) * 1000),
+        "error": error,
+    })
+    failures = sum(item["status"] == "FAIL" for item in results)
+    return {
+        "schema_version": 1,
+        "status": "FAIL" if failures else "PASS",
+        "total_rows": sum(item["rows"] for item in results),
+        "checks_passed": len(results) - failures,
+        "checks_failed": failures,
+        "duration_ms": round((time.monotonic() - started) * 1000),
+        "checks": results,
+    }
+
+
+def validate_ci(rows: list[dict]) -> None:
+    for row in rows:
         if not row.get("signature") or not row.get("expected", {}).get("diagnosis"):
             raise AssertionError(f"{row['id']}: CI signature and diagnosis required")
-    validate_harness()
-    total = sum(len(rows) for rows in corpora.values())
-    print(f"Evidence validation PASS: {total} corpus rows + harness matrix")
-    return 0
+
+
+def format_text(report: dict) -> str:
+    lines = ["zOS Evidence Validation", "=" * 62]
+    for item in report["checks"]:
+        name = item["name"].replace("_", " ").upper()
+        count = f"{item['rows']} rows" if item["name"] != "harness" else "compatibility matrix"
+        lines.append(f"[{item['status']:4}] {name:<16} {count:<22} {item['duration_ms']:>5} ms")
+        if item["error"]:
+            lines.append(f"       Error: {item['error']}")
+    lines.extend([
+        "-" * 62,
+        (f"Result: {report['status']} | {report['checks_passed']}/{len(report['checks'])} checks "
+         f"| {report['total_rows']} corpus rows | {report['duration_ms']} ms"),
+    ])
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Validate zOS evidence corpora and harness.")
+    parser.add_argument("--format", choices=("text", "json"), default="text",
+                        help="Human-readable summary or machine-readable JSON.")
+    args = parser.parse_args(argv)
+    report = run_validation()
+    if args.format == "json":
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        print(format_text(report))
+    return 0 if report["status"] == "PASS" else 1
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except AssertionError as exc:
-        print(f"Evidence validation FAIL: {exc}", file=sys.stderr)
-        raise SystemExit(1)
+    raise SystemExit(main())

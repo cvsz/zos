@@ -15,6 +15,10 @@ zOS distinguishes deterministic repository evidence from live production evidenc
 | Vulnerability + package evidence | Trivy filesystem/image SARIF + controller CycloneDX SBOM retained 30 days | `security-scan.yml` |
 | Vendored RouterOS skills | skill structure/relative links/secret checks | `routeros-skills.yml` |
 | **CHR Lab Mock Evidence** | `artifacts/chr-lab/manifest-*.json` (failure-injection scenarios) | `python3 tools/chr-lab-harness.py` |
+| Backup pipeline (mock) | backup artifact manifest and SHA-256 checksums; no production backup published | `bash tools/test-backup-hardening.sh` |
+| Restore drill (mock) | sanitized evidence; actual CHR restore remains BLOCKED | `bash tools/test-restore-drill.sh` |
+| Repository security | tracked-file secret scan, permissions, CI and retention guards | `bash tools/test-repo-security.sh` |
+| Offline topology | canonical LAN CIDR and gateway, JSON drift fixtures | `bash tools/test-topology-reconcile.sh` |
 | CORE active routing | live route/WireGuard state | `make core-check`, `make core-find-conflict` |
 | Router runtime | live read-only status/verify | `make status`, `make audit`, `make verify` |
 | End-to-end reachability | live smoke checks | `make e2e` |

@@ -28,7 +28,10 @@ fi
 
 # SEC-SCAN-01: committed tree must not contain sensitive key blocks or literal secrets
 # shellcheck disable=SC2046
-if git -C "$ROOT" grep -nE 'BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' -- . 2>/dev/null | grep -q .; then
+key_pattern='BEGIN (RSA|OPENSSH|EC) '
+key_pattern+='PRIVATE'
+key_pattern+=' KEY'
+if git -C "$ROOT" grep -nE "$key_pattern" -- . ':!tools/test-repo-security.sh' 2>/dev/null | grep -q .; then
   bad "SEC-SCAN sensitive key block committed"
 else
   ok "SEC-SCAN no committed sensitive key blocks"

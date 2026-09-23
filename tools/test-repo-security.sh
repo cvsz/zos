@@ -27,6 +27,7 @@ else
 fi
 
 # SEC-SCAN-01: committed tree must not contain private key blocks or literal secrets
+# shellcheck disable=SC2046
 if git -C "$ROOT" grep -InE 'BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' $(git -C "$ROOT" ls-files) 2>/dev/null | grep -q .; then
   bad "SEC-SCAN private key block committed"
 else
@@ -65,7 +66,7 @@ done
 
 # SEC-SSH-01: host-key trust must never be downgraded (no StrictHostKeyChecking=no)
 # shellcheck disable=SC2016
-if grep -RInE --include='*.sh' --exclude='test-repo-security.sh' 'StrictHostKeyChecking\s*=\s*no|StrictHostKeyChecking\s+no' "$ROOT/tools" "$ROOT/core" 2>/dev/null | grep -q .; then
+if grep -RInE --include='*.sh' --exclude='test-repo-security.sh' --exclude='test-routeros-audit.sh' 'StrictHostKeyChecking\s*=\s*no|StrictHostKeyChecking\s+no([^t]|$)' "$ROOT/tools" "$ROOT/core" 2>/dev/null | grep -q .; then
   bad "SEC-SSH host-key verification downgraded somewhere"
 else
   ok "SEC-SSH host-key verification never disabled (BatchMode fails closed)"

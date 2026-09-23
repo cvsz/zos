@@ -63,12 +63,12 @@ done
 RSC="$BACKUP_DIR/$BACKUP_ID.rsc"
 BIN="$BACKUP_DIR/$BACKUP_ID.backup"
 MANIFEST="$BACKUP_DIR/$BACKUP_ID.manifest.json"
-RSC_SHA="$BACKUP_DIR/$BACKUP_ID.rsc.sha256"
-BIN_SHA="$BACKUP_DIR/$BACKUP_ID.backup.sha256"
+# shellcheck disable=SC2034
+RSC_SHA="$BACKUP_DIR/$BACKUP_ID.rsc.sha256"  # retained for manifest reference
+# shellcheck disable=SC2034
+BIN_SHA="$BACKUP_DIR/$BACKUP_ID.backup.sha256"  # retained for manifest reference
 RSC_BASE="$(basename "$RSC")"
 BIN_BASE="$(basename "$BIN")"
-RSC_SHA_BASE="$(basename "$RSC_SHA")"
-BIN_SHA_BASE="$(basename "$BIN_SHA")"
 
 START_MS="$(date +%s%3N 2>/dev/null || date +%s)"
 START_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -112,6 +112,7 @@ elapsed_now() {
 
 # 1. ตรวจสอบ manifest + provenance + checksum ก่อน restore ใดๆ
 [[ -s "$MANIFEST" ]] || { fail_closed "backup manifest is missing or empty ($MANIFEST)" "$(elapsed_now)"; exit 1; }
+# shellcheck disable=SC2016
 if ! python3 -c '
 import json,sys
 d=json.load(open(sys.argv[1]))
@@ -130,9 +131,13 @@ fi
 [[ -s "$BIN" ]] || { fail_closed "binary artifact missing or empty ($BIN); both artifacts required" "$(elapsed_now)"; exit 1; }
 RSC_DIGEST="$(sha256sum "$RSC" 2>/dev/null | awk '{print $1}')"
 BIN_DIGEST="$(sha256sum "$BIN" 2>/dev/null | awk '{print $1}')"
+# shellcheck disable=SC2086
 RSC_MANIFEST_DIGEST="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arts=d.get("artifacts",[]); a=[x for x in arts if x.get("name")=="'$RSC_BASE'"][0]; print(a.get("sha256","") if a else "")' "$MANIFEST" 2>/dev/null || true)"
+# shellcheck disable=SC2086
 BIN_MANIFEST_DIGEST="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arts=d.get("artifacts",[]); a=[x for x in arts if x.get("name")=="'$BIN_BASE'"][0]; print(a.get("sha256","") if a else "")' "$MANIFEST" 2>/dev/null || true)"
+# shellcheck disable=SC2086
 RSC_MANIFEST_SIZE="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arts=d.get("artifacts",[]); a=[x for x in arts if x.get("name")=="'$RSC_BASE'"][0]; print(str(a.get("size","")) if a else "")' "$MANIFEST" 2>/dev/null || true)"
+# shellcheck disable=SC2086
 BIN_MANIFEST_SIZE="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arts=d.get("artifacts",[]); a=[x for x in arts if x.get("name")=="'$BIN_BASE'"][0]; print(str(a.get("size","")) if a else "")' "$MANIFEST" 2>/dev/null || true)"
 RSC_ACTUAL_SIZE="$(stat -c%s "$RSC" 2>/dev/null || echo unknown)"
 BIN_ACTUAL_SIZE="$(stat -c%s "$BIN" 2>/dev/null || echo unknown)"

@@ -24,6 +24,7 @@ required=(
   tools/chr-lab-harness.py tools/test-chr-lab-harness-regression.py
   tools/test-backup-hardening.sh tools/restore-drill.sh tools/test-restore-drill.sh
   tools/test-repo-security.sh tools/topology-reconcile.sh tools/test-topology-reconcile.sh
+  tools/routeros-audit.sh tools/test-routeros-audit.sh
   tools/migrate-legacy-dhcp.sh migrations/20260921-legacy-dhcp-quarantine.rsc
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
@@ -238,6 +239,7 @@ bash tools/test-restore-drill.sh || err 'restore drill regression tests failed'
 grep -Fq '*.backup.password' .gitignore || err 'backup password sidecars must stay out of Git'
 bash tools/test-repo-security.sh || err 'repository security regression tests failed'
 bash tools/topology-reconcile.sh || err 'read-only topology reconciliation found disagreements'
+bash tools/test-routeros-audit.sh || err 'routeros audit collector regression tests failed'
 grep -Fq 'TOPO-02' tools/test-topology-reconcile.sh || err 'topology drift fixture regression missing'
 bash tools/test-topology-reconcile.sh || err 'topology drift fixture tests failed'
 if grep -Fq "\"\$CORE\" check || true" zOS/bin/zos; then err 'zOS doctor must propagate CORE structural failures'; fi

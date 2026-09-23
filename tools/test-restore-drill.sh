@@ -40,7 +40,7 @@ if OUT="$(bash "$DRILL" --backup-id "$ID1" --backup-dir "$T1/backups" --password
 else
   bad "RD-01 mock drill failed: $OUT"
 fi
-EV1="$(ls "$ROOT/artifacts/restore-drill"/manifest-*-000001-1-aabbccdd-*.json 2>/dev/null | tail -1)"
+EV1="$(find "$ROOT/artifacts/restore-drill" -maxdepth 1 -name 'manifest-*-000001-1-aabbccdd-*.json' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2)"
 if [[ -s "$EV1" ]] && grep -Fq '"status": "MOCK PASS"' "$EV1" && grep -Fq '"elapsed_ms"' "$EV1"; then
   ok "RD-01 MOCK PASS evidence with elapsed time"
 else

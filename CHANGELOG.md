@@ -4,6 +4,9 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Offline topology drift และ SSH read-only audit
+- เพิ่ม JSON Drift Report, ตรวจ LAN CIDR/Gateway, ชุด Fixture Tests และ Audit Collector ที่ต้องยืนยัน SSH Host Key ผ่าน Known Hosts; Error ของ SSH ไม่ถูกนับเป็น PASS และ Production Mutation ยังคงถูกปิด
+
 ### Restore Drill — clean main integration
 - เพิ่ม Restore Drill ที่ตรวจ Schema ของ Backup Pipeline จริง (`bytes`), Manifest Provenance, ชื่อ Artifact และ SHA-256 จากไฟล์โดยตรง พร้อม Regression Tests โดยยังปิด Live CHR Restore และไม่เชื่อมต่อ Production
 

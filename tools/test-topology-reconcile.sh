@@ -65,6 +65,22 @@ else
   ok "TOPO-05 missing snapshot rejected"
 fi
 
+# TOPO-06: reject drifted canonical LAN CIDR in a disposable copy only.
+TMP_CIDR="$(mktemp -d)"
+mkdir -p "$TMP_CIDR/tools" "$TMP_CIDR/config"
+cp "$TOOL" "$TMP_CIDR/tools/topology-reconcile.sh"
+cp "$ROOT/config/topology.env.example" "$TMP_CIDR/config/topology.env.example"
+for f in 00-PRECHECK.rsc 30-DHCP-DNS-NTP.rsc 50-FIREWALL-NAT.rsc 99-VERIFY-HEALTH.rsc; do
+  cp "$ROOT/$f" "$TMP_CIDR/$f"
+done
+sed -i 's#^ROUTER_LAN_CIDR=.*#ROUTER_LAN_CIDR=10.0.0.0/24#' "$TMP_CIDR/config/topology.env.example"
+if bash "$TMP_CIDR/tools/topology-reconcile.sh" >/dev/null 2>&1; then
+  bad "TOPO-06 changed LAN CIDR was accepted"
+else
+  ok "TOPO-06 changed LAN CIDR rejected"
+fi
+rm -rf "$TMP_CIDR"
+
 echo "---"
 echo "topology-reconcile regression: PASS=$PASS FAIL=$FAIL"
 [[ "$FAIL" -eq 0 ]]

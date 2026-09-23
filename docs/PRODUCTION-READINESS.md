@@ -41,7 +41,7 @@ CORE is runtime-ready when:
 
 ## Current live-apply blocker
 
-As of the reviewed repository state on 2026-09-22, PRs #61-#66 are merged and their required validation/build/security workflows passed. These results establish only the scope exercised by repository CI. The direct `apply` command is disabled and `tools/routeros-safe-session.py` returns a fail-closed error; `apply-safe` cannot deploy. This is intentional until the interactive driver has independent CHR evidence. Never treat `OMEGA_ALLOW_LIVE_APPLY=1` as an override.
+As of the reviewed repository state on 2026-09-22, PRs #61-#69, #70, #73, #76-#78 are merged and their required validation/build/security workflows passed. These results establish only the scope exercised by repository CI. The direct `apply` command is disabled and `tools/routeros-safe-session.py` returns a fail-closed error; `apply-safe` cannot deploy. This is intentional until the interactive driver has independent CHR evidence. Never treat `OMEGA_ALLOW_LIVE_APPLY=1` as an override.
 
 ## CHR-verified
 
@@ -53,9 +53,12 @@ As of the reviewed repository state on 2026-09-22, PRs #61-#66 are merged and th
 - backup restore and local recovery have been exercised.
 
 **Current Status**: **MOCK HARNESS COMPLETE, LIVE CHR BLOCKED**
-- `tools/chr-lab-harness.py`: 15 deterministic failure-injection scenarios (SSH, Safe Mode, timeout, disconnect, signal, concurrent, spoof, fragmentation, truncation, rollback, commit gate)
-- `docs/CHR-LAB-EVIDENCE.md`: evidence manifest template, test matrix with status
-- All live RouterOS integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03) marked **BLOCKED** — no isolated CHR available
+- `tools/chr-lab-harness.py`: 17 deterministic failure-injection scenarios (SSH-01..03, SM-01..14: Safe Mode, timeout, disconnect, signal, concurrent, spoof, fragmentation, truncation, rollback, commit gate), all `PASS (mock)`
+- `tools/test-chr-lab-harness-regression.py`: 9 event-driven failure-path verifications `PASS` (direct + pytest, Python 3.14)
+- `tools/test-backup-hardening.sh`: 28 mocked backup-lifecycle checks `PASS`; `tools/test-restore-drill.sh`: 12 mocked restore-gate checks `PASS`
+- `tools/test-repo-security.sh`: 35 checks `PASS`; `tools/test-topology-reconcile.sh`: 21 checks `PASS` (offline fixtures only)
+- `docs/CHR-LAB-EVIDENCE.md`: evidence manifest template, reconciled test matrix (17 mock `MOCK PASS`, 15 live `BLOCKED`)
+- All live RouterOS integration tests (SM-01, SM-02, DR-01..03, UP-01..02, BK-01..02, GR-01..03, OWN-01..03 — 15 tests) marked **BLOCKED** — no isolated CHR available
 - Never fabricate CHR results; mark integration tests BLOCKED per AGENTS.md
 
 ## Router change-ready

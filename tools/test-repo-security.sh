@@ -31,9 +31,9 @@ key_pattern='BEGIN (RSA|OPENSSH|EC) '
 key_pattern+='PRIVATE'
 key_pattern+=' KEY'
 if git -C "$ROOT" grep -nE "$key_pattern" -- ':!tools/test-repo-security.sh' ':!*.md' ':!*.example' ':!tools/validate-repo.sh' 2>/dev/null | grep -q .; then
-  bad "SEC-SCAN private key block committed"
+  bad "SEC-SCAN sensitive key block committed"
 else
-  ok "SEC-SCAN no committed private key blocks"
+  ok "SEC-SCAN no committed sensitive key blocks"
 fi
 
 # SEC-CLEAN-01: unsafe cleanup patterns must not appear

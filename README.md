@@ -2,10 +2,17 @@
 
 ![zOS infrastructure safety control plane](assets/zos-banner-01.jpg)
 
-[![Validate RouterOS Stack](https://github.com/cvsz/zos/actions/workflows/validate.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/validate.yml)
-[![Build zOS](https://github.com/cvsz/zos/actions/workflows/zos-build.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/zos-build.yml)
-[![Evidence Validation](https://github.com/cvsz/zos/actions/workflows/evidence-validation.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/evidence-validation.yml)
-[![RouterOS Skills](https://github.com/cvsz/zos/actions/workflows/routeros-skills.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/routeros-skills.yml)
+[![Validate RouterOS Stack](https://github.com/cvsz/zos/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/cvsz/zos/actions/workflows/validate.yml?query=branch%3Amain)
+[![Build zOS](https://github.com/cvsz/zos/actions/workflows/zos-build.yml/badge.svg?branch=main)](https://github.com/cvsz/zos/actions/workflows/zos-build.yml?query=branch%3Amain)
+[![Security Scan](https://github.com/cvsz/zos/actions/workflows/security-scan.yml/badge.svg?branch=main)](https://github.com/cvsz/zos/actions/workflows/security-scan.yml?query=branch%3Amain)
+[![Evidence Validation](https://github.com/cvsz/zos/actions/workflows/evidence-validation.yml/badge.svg?branch=main)](https://github.com/cvsz/zos/actions/workflows/evidence-validation.yml?query=branch%3Amain)
+[![RouterOS Skills](https://github.com/cvsz/zos/actions/workflows/routeros-skills.yml/badge.svg?branch=main)](https://github.com/cvsz/zos/actions/workflows/routeros-skills.yml?query=branch%3Amain)
+
+[![Live Apply](https://img.shields.io/badge/Live_Apply-DISABLED-critical)](docs/PRODUCTION-READINESS.md)
+[![CHR Integration](https://img.shields.io/badge/CHR_Integration-BLOCKED-orange)](docs/CHR-LAB-EVIDENCE.md)
+[![Production Readiness](https://img.shields.io/badge/Production_Readiness-NOT_VERIFIED-yellow)](docs/PRODUCTION-READINESS.md)
+
+> **Status badge scope:** GitHub Actions badges show the latest workflow status on `main` only. They do not prove CHR integration, live router health, disaster recovery, or production acceptance. The operational badges are deliberately static safety-gate labels; update them only after independently verified evidence and an approved release.
 
 zOS is the ZeaZDev management and safety control plane for MikroTik RouterOS. RouterOS remains the network operating system on the router; zOS runs from the controller side and adds deterministic planning, validation, backup, evidence, guarded apply, verification, recovery, and GitHub delivery workflows.
 

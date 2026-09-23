@@ -38,6 +38,7 @@ import importlib.util
 MODULE_PATH = TOOLS_DIR / "routeros-safe-session.py"
 spec = importlib.util.spec_from_file_location("routeros_safe_session", MODULE_PATH)
 routeros_safe_session = importlib.util.module_from_spec(spec)
+sys.modules["routeros_safe_session"] = routeros_safe_session
 spec.loader.exec_module(routeros_safe_session)
 
 # Import names from the loaded module

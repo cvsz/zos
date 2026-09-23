@@ -91,3 +91,13 @@ Covers 28 checks: unique identifiers, `700`/`600` permissions, `mktemp` staging 
 ## Offline Topology Drift และ Audit Collector
 
 ทดสอบแบบไม่เชื่อมต่อ Router ด้วย `bash tools/test-topology-reconcile.sh`, `bash tools/test-routeros-audit.sh` และ `bash tools/test-repo-security.sh` ระบบตรวจ LAN CIDR/Gateway, JSON Drift และจำลอง SSH Failure ผ่าน Mock Transport เท่านั้น การตรวจ Live ต้องมี Operator Approval, Known Hosts ที่ตรวจสอบ Fingerprint จากช่องทางอิสระ และ Recovery Path ที่ยืนยันแล้ว
+
+## Evidence validator output and regression tests
+
+```bash
+python3 tools/validate-evidence.py
+python3 tools/validate-evidence.py --format json
+python3 -m unittest discover -s tools -p 'test_validate_evidence.py' -v
+```
+
+The text output is a per-check summary rather than the former single PASS line. The versioned JSON report is intended for CI parsers; do not scrape the human-readable table. Exit code 1 indicates any failed check, including malformed fixtures. This is repository-only evidence; CHR integration and production restore remain blocked pending independent lab and operator evidence.

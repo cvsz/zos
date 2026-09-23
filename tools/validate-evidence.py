@@ -41,9 +41,16 @@ def load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+def expected_object(row: dict) -> dict:
+    expected = row.get("expected")
+    if not isinstance(expected, dict):
+        raise AssertionError(f"{row['id']}: expected must be an object")
+    return expected
+
+
 def validate_analyzer(rows: list[dict]) -> None:
     for row in rows:
-        expected = row.get("expected", {})
+        expected = expected_object(row)
         if expected.get("severity") not in {"low", "medium", "high", "critical"}:
             raise AssertionError(f"{row['id']}: invalid analyzer severity")
         if not expected.get("codes"):
@@ -53,11 +60,15 @@ def validate_analyzer(rows: list[dict]) -> None:
 def validate_rag(rows: list[dict]) -> None:
     for row in rows:
         candidates = row.get("candidates", [])
-        expected = row.get("expected", {})
+        expected = expected_object(row)
         top1 = expected.get("top1")
-        if top1 not in candidates:
+        if not isinstance(candidates, list) or not all(isinstance(item, str) for item in candidates):
+            raise AssertionError(f"{row['id']}: candidates must be a list of strings")
+        if not isinstance(top1, str) or top1 not in candidates:
             raise AssertionError(f"{row['id']}: expected top1 must be a candidate")
         prefix = expected.get("ordered_prefix", [])
+        if not isinstance(prefix, list):
+            raise AssertionError(f"{row['id']}: ordered_prefix must be a list")
         if any(item not in candidates for item in prefix):
             raise AssertionError(f"{row['id']}: ordered_prefix contains unknown candidate")
         if prefix and prefix[0] != top1:
@@ -66,7 +77,7 @@ def validate_rag(rows: list[dict]) -> None:
 
 def validate_actions(rows: list[dict], allowed: set[str]) -> None:
     for row in rows:
-        action = row.get("expected", {}).get("action")
+        action = expected_object(row).get("action")
         if action not in allowed:
             raise AssertionError(f"{row['id']}: unsupported expected action {action!r}")
 
@@ -78,6 +89,8 @@ def validate_harness() -> None:
         raise AssertionError("harness canonical contract must be AGENTS.md")
     surfaces = data.get("surfaces", [])
     expected_names = {"Claude", "Codex", "Gemini", "OpenCode", "Zed", "dmux"}
+    if not isinstance(surfaces, list) or any(not isinstance(item, dict) for item in surfaces):
+        raise AssertionError("harness surfaces must be a list of objects")
     names = {item.get("name") for item in surfaces}
     if names != expected_names:
         raise AssertionError(f"harness surfaces mismatch: {names} != {expected_names}")
@@ -147,7 +160,7 @@ def run_validation() -> dict:
 
 def validate_ci(rows: list[dict]) -> None:
     for row in rows:
-        if not row.get("signature") or not row.get("expected", {}).get("diagnosis"):
+        if not row.get("signature") or not expected_object(row).get("diagnosis"):
             raise AssertionError(f"{row['id']}: CI signature and diagnosis required")
 
 

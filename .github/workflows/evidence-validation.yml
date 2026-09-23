@@ -5,6 +5,7 @@ on:
     paths:
       - 'evidence/**'
       - 'tools/validate-evidence.py'
+      - 'tools/test_validate_evidence.py'
       - 'tools/generate-security-evidence.py'
       - 'CODEX.md'
       - 'CLAUDE.md'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'evidence/**'
       - 'tools/validate-evidence.py'
+      - 'tools/test_validate_evidence.py'
       - 'tools/generate-security-evidence.py'
       - 'CODEX.md'
       - 'CLAUDE.md'
@@ -43,6 +45,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Test evidence validator output and failure handling
+        run: python3 -m unittest discover -s tools -p 'test_validate_evidence.py' -v
       - name: Validate corpus and harness compatibility
         run: python3 tools/validate-evidence.py
 

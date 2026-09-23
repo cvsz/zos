@@ -4,6 +4,9 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Evidence validator reporting
+- เปลี่ยนผลลัพธ์ `make evidence` เป็นรายงาน PASS/FAIL แยก 6 หมวด พร้อมจำนวนรายการ ระยะเวลา และ Error; เพิ่ม `--format json` (schema_version 1) สำหรับ CI; ปรับ automation ที่เคย parse ข้อความ PASS บรรทัดเดียวให้ใช้ JSON; เพิ่ม Regression Tests และตรวจ malformed nested fixtures โดยไม่แตะ RouterOS หรืออ้างว่า Live CHR ผ่าน
+
 ### Recovery documentation and evidence taxonomy
 - เพิ่มคู่มือกู้คืนระบบภาษาไทยครบ 9 สถานการณ์, ปรับ Evidence Matrix ให้ตรง 17 Mock Scenarios และ 15 Live CHR Cases ที่ยัง BLOCKED, ซิงก์ README/Runbook/Readiness กับ Restore Drill และ Offline Audit โดยไม่อ้างว่า Production ผ่านการตรวจ
 

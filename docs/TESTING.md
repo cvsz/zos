@@ -83,3 +83,7 @@ bash tools/test-backup-hardening.sh
 ~~~
 
 Covers 28 checks: unique identifiers, `700`/`600` permissions, `mktemp` staging + atomic `mv` publish, nonempty validation, SHA-256 + manifest, cleanup trap preserving the original error, no password in ssh argv/stdout/`bash -x` trace, happy-path manifest/perms/checksum/unique IDs, partial-download and empty-artifact fail-closed behavior. Wired into `make validate` via `tools/validate-repo.sh`.
+
+## Restore Drill Regression
+
+ทดสอบโดยไม่เชื่อมต่อ Router ด้วย `bash tools/test-restore-drill.sh` ซึ่งรวมกรณี Manifest จาก Backup คนละชุด ชื่อ Artifact ไม่ตรง จำนวนไบต์ผิด และ Checksum ไม่ตรง การทดสอบนี้ไม่ใช่ Live CHR Restore Evidence

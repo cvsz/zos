@@ -80,3 +80,7 @@ The current golden contract rebuilds:
 No WireGuard private key is committed. A clean rebuild generates a new router WireGuard keypair and prints `OMEGA WG ROUTER PUBLIC KEY=...`; reconcile that public key on CORE before VPN acceptance.
 
 After the golden bootstrap succeeds, run the current guarded phase stack and `99-VERIFY-HEALTH.rsc`. A successful golden import alone is not production acceptance.
+
+## Restore Drill บน CHR แยกเครือข่าย
+
+ใช้ `tools/restore-drill.sh --backup-id <id> --mock` เพื่อตรวจ Manifest และ Artifact โดยไม่เชื่อมต่อ Router; ผล `MOCK PASS` ไม่ใช่หลักฐานว่า Restore สำเร็จจริง สคริปต์ตรวจฟิลด์ `bytes` ที่ Backup Pipeline สร้าง รวมถึง `backup_id`, `commit_sha`, `created_at`, `router_host`, ชื่อไฟล์ และ SHA-256 จากไฟล์จริง การ Restore บน CHR ยังเป็น `BLOCKED` จนกว่าจะมี Lab ที่แยกเครือข่ายและ Recovery Path ที่พิสูจน์แล้ว

@@ -40,7 +40,7 @@ class EvidenceOutputTests(unittest.TestCase):
             paths = {}
             for name in validator.JSONL_FILES:
                 path = Path(tmp) / f"{name}.jsonl"
-                path.write_text('{"id":"fixture","expected":{}}\\n', encoding="utf-8")
+                path.write_text('{"id":"fixture","expected":{}}\n', encoding="utf-8")
                 paths[name] = path
             with patch.object(validator, "JSONL_FILES", paths), patch.object(
                 validator, "validate_harness", side_effect=AssertionError("missing contract")
@@ -58,7 +58,7 @@ class EvidenceOutputTests(unittest.TestCase):
             path.write_text("", encoding="utf-8")
             with self.assertRaisesRegex(AssertionError, "empty"):
                 validator.load_jsonl(path)
-            path.write_text('{"id":"same"}\\n{"id":"same"}\\n', encoding="utf-8")
+            path.write_text('{"id":"same"}\n{"id":"same"}\n', encoding="utf-8")
             with self.assertRaisesRegex(AssertionError, "duplicate"):
                 validator.load_jsonl(path)
 

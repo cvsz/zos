@@ -26,24 +26,22 @@ else
   ok "SEC-PERM no world-writable files under tools/core"
 fi
 
-# SEC-SCAN-01: construct the detector without embedding its literal target in source
-key_pattern='BEGIN (RSA|OPENSSH|EC) '
-key_pattern+='PRIVATE'
-key_pattern+=' KEY'
-if git -C "$ROOT" grep -nE "$key_pattern" -- ':!tools/test-repo-security.sh' ':!*.md' ':!*.example' ':!tools/validate-repo.sh' 2>/dev/null | grep -q .; then
-  bad "SEC-SCAN sensitive key block committed"
+# SEC-SCAN-01: committed tree must not contain private key blocks or literal secrets
+# shellcheck disable=SC2046
+if git -C "$ROOT" grep -InE 'BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' $(git -C "$ROOT" ls-files) 2>/dev/null | grep -q .; then
+  bad "SEC-SCAN private key block committed"
 else
-  ok "SEC-SCAN no committed sensitive key blocks"
+  ok "SEC-SCAN no committed private key blocks"
 fi
 
-# SEC-CLEAN-01: unsafe cleanup patterns must not appear
+# SEC-CLEAN-01: unsafe cleanup patterns must not appear (no rm -rf / , no broad backup delete)
 # shellcheck disable=SC2016
 if grep -RInE --include='*.sh' --exclude='test-repo-security.sh' 'rm -rf /($| |")|rm -rf \$ROOT/?$' "$ROOT/tools" 2>/dev/null | grep -q .; then
   bad "SEC-CLEAN unsafe rm pattern in tools"
 else
   ok "SEC-CLEAN no unsafe rm patterns in tools"
 fi
-# Backup retention must guard the just-created set
+# Backup retention must guard the just-created set (never delete only verified copy)
 # shellcheck disable=SC2016
 if grep -Fq '== "$backup_dir/$name"' "$ROOT/tools/omega-router.sh" || grep -Fq 'backup_dir/$name' "$ROOT/tools/omega-router.sh"; then
   ok "SEC-CLEAN retention guards current backup set"
@@ -54,6 +52,41 @@ fi
 # SEC-CI-01: security workflow must retain evidence and gate HIGH/CRITICAL
 for needle in 'retention-days: 30' 'severity: HIGH,CRITICAL' 'format: cyclonedx'; do
   if grep -Fq "$needle" "$ROOT/.github/workflows/security-scan.yml"; then ok "SEC-CI covers $needle"; else bad "SEC-CI missing $needle"; fi
+done
+
+# SEC-CI-02: every workflow must declare least-privilege permissions
+for wf in "$ROOT"/.github/workflows/*.yml; do
+  _base="$(basename "$wf")"
+  if grep -Eq '^permissions:' "$wf" && grep -Eq '^  contents: read' "$wf"; then
+    ok "SEC-CI least-privilege permissions in $_base"
+  else
+    bad "SEC-CI $_base missing permissions/contents-read"
+  fi
+done
+
+# SEC-SSH-01: host-key trust must never be downgraded (no StrictHostKeyChecking=no)
+# shellcheck disable=SC2016
+if grep -RInE --include='*.sh' --exclude='test-repo-security.sh' --exclude='test-routeros-audit.sh' 'StrictHostKeyChecking\s*=\s*no|StrictHostKeyChecking\s+no([^t]|$)' "$ROOT/tools" "$ROOT/core" 2>/dev/null | grep -q .; then
+  bad "SEC-SSH host-key verification downgraded somewhere"
+else
+  ok "SEC-SSH host-key verification never disabled (BatchMode fails closed)"
+fi
+
+# SEC-LOG-01: backup/restore code must not echo secret values to logs
+# shellcheck disable=SC2016
+if grep -nE 'echo[^|]*\$password[^_]' "$ROOT/tools/omega-router.sh" "$ROOT/tools/restore-drill.sh" 2>/dev/null | grep -vq 'password_file\|password saved\|password availability\|password unavailable\|password format\|password travels\|password handling'; then
+  bad "SEC-LOG possible password value in log output"
+else
+  ok "SEC-LOG no password values in log output (paths/mentions only)"
+fi
+
+# SEC-RET-01: backup retention and recovery evidence paths must exist in code
+for needle in 'OMEGA_BACKUP_RETENTION_COUNT' 'manifest.json' 'artifacts/restore-drill'; do
+  if grep -Fq "$needle" "$ROOT/tools/omega-router.sh" "$ROOT/tools/restore-drill.sh" 2>/dev/null; then
+    ok "SEC-RET covers $needle"
+  else
+    bad "SEC-RET missing $needle"
+  fi
 done
 
 echo "---"

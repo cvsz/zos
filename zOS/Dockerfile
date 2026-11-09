@@ -1,4 +1,4 @@
-FROM alpine:3.22.8@sha256:9db293488671
+FROM alpine:3.22.8
 
 RUN apk add --no-cache bash openssh-client curl jq iproute2 iputils bind-tools git make ca-certificates
 

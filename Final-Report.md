@@ -101,6 +101,23 @@ This discrepancy is corrected in the implementation branch accompanying this rep
 
 The repository homepage is still `http:://zos.zeaz.dev`; this report records it as an outstanding metadata task rather than silently guessing the intended canonical URL.
 
+## Security scan findings — inspected Trivy evidence
+
+The retained Trivy SARIF for run 42330612687 identified the following HIGH findings in the controller image built from the audited `main` commit:
+
+| Package | Installed | Fixed version from scan | CVE | Finding |
+|---|---:|---:|---|---|
+| musl / musl-utils | 1.2.5-r12 | 1.2.5-r13 | CVE-2026-107891 | integer-overflow issue in regular-expression compilation |
+| zlib | 1.3.2-r0 | 1.3.2-r1 | CVE-2026-85091 | heap-buffer-overflow issue in non-blocking gzip write handling |
+
+The evidence artifact contained two SARIF results for the musl CVE (the `musl` and `musl-utils` packages) and one for zlib. The failed controller-image scan reported three HIGH results total and zero CRITICAL results.
+
+The image used `alpine:3.22.6` pinned to an immutable digest. Alpine's official 2026-10-21 release announcement for 3.22.7 explicitly listed both CVEs among the security fixes, and the 2026-11-05 release archive lists 3.22.8 as the latest 3.22 point release. The implementation branch therefore updates the controller base image to the 3.22.8 tag. **The branch's pinned digest must be validated by CI before merge; no clean-scan result is claimed here.**
+
+Sources:
+- Alpine 3.22.7 security release notes: https://www.alpinelinux.org/posts/alpine-3.21.9-3.22.7-3.23.7-3.24.3-released/
+- Alpine 3.22 release archive: https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64/
+
 ## Security assessment boundaries
 
 The reviewed metadata and workflow configuration establish that security scanning is intended and that the Trivy workflow has failed. They do not establish a complete vulnerability inventory.

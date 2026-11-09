@@ -4,6 +4,13 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 
 ## Unreleased
 
+### Security
+- Refresh the zOS controller image's Alpine 3.22 base to the 3.22.8 point release to pick up the musl and zlib security fixes identified by the retained Trivy evidence. CI must confirm the resulting image scan before this change is accepted.
+
+### Documentation
+- Synchronize the licensing guide with the existing root MIT license.
+- Add an evidence-bounded AUSI repository audit report.
+
 ### Evidence validator reporting
 - เปลี่ยนผลลัพธ์ `make evidence` เป็นรายงาน PASS/FAIL แยก 6 หมวด พร้อมจำนวนรายการ ระยะเวลา และ Error; เพิ่ม `--format json` (schema_version 1) สำหรับ CI; ปรับ automation ที่เคย parse ข้อความ PASS บรรทัดเดียวให้ใช้ JSON; เพิ่ม Regression Tests และตรวจ malformed nested fixtures โดยไม่แตะ RouterOS หรืออ้างว่า Live CHR ผ่าน
 
